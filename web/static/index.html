@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🇮🇳 Indian Stock Market Intelligence Engine | Zero API Keys</title>
+  <meta name="description" content="Local, free, AI-powered Indian stock market intelligence engine scanning NSE/BSE filings, public news, and yfinance analytics with zero API keys.">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand-wrapper">
+        <span class="flag-icon">🇮🇳</span>
+        <div>
+          <div style="display: flex; align-items: center;">
+            <h1 class="brand-title">INDIAN MARKET INTELLIGENCE</h1>
+            <span class="brand-badge">⚡ ZERO API KEYS</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 2px;">
+            Local-First Autonomous Scanner | NSE & BSE Live Filings | Public Financial Feeds | yfinance Deep Analytics
+          </p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search Ticker (e.g. RELIANCE, HAL)..." />
+        </div>
+        <button id="btnScan" class="btn-primary" onclick="triggerScan()">
+          <span id="scanIcon">⚡</span>
+          <span id="scanBtnText">Run Market Scan</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Market Regime Banner -->
+    <section class="regime-banner" id="marketRegimeBanner">
+      <div class="regime-header">
+        <div class="regime-status">
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">MARKET REGIME:</span>
+          <span class="regime-pill" id="regimePill">Loading Regime...</span>
+          <span id="lastUpdated" style="font-size: 0.75rem; color: var(--text-dim); margin-left: 12px;"></span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);" id="scanStats">
+          Candidates Scanned: <span id="candidatesCount" style="color: var(--accent-cyan); font-weight: 700;">--</span> | Deep Analyzed: <span id="analyzedCount" style="color: var(--accent-green); font-weight: 700;">--</span>
+        </div>
+      </div>
+
+      <!-- Macro Indicators Grid -->
+      <div class="macro-grid">
+        <div class="macro-card">
+          <div class="macro-label">NIFTY 50</div>
+          <div class="macro-val">
+            <span id="niftyPrice">--</span>
+            <span id="niftyChange" style="font-size: 0.85rem;">--</span>
+          </div>
+        </div>
+
+        <div class="macro-card">
+          <div class="macro-label">BANK NIFTY</div>
+          <div class="macro-val">
+            <span id="bankPrice">--</span>
+            <span id="bankChange" style="font-size: 0.85rem;">--</span>
+          </div>
+        </div>
+
+        <div class="macro-card">
+          <div class="macro-label">INDIA VIX</div>
+          <div class="macro-val">
+            <span id="vixPrice">--</span>
+            <span id="vixSentiment" style="font-size: 0.75rem; color: var(--text-muted);">Volatility</span>
+          </div>
+        </div>
+
+        <div class="macro-card">
+          <div class="macro-label">BRENT CRUDE</div>
+          <div class="macro-val">
+            <span id="brentPrice">--</span>
+            <span id="brentChange" style="font-size: 0.85rem;">--</span>
+          </div>
+        </div>
+
+        <div class="macro-card">
+          <div class="macro-label">GOLD (COMEX)</div>
+          <div class="macro-val">
+            <span id="goldPrice">--</span>
+            <span id="goldChange" style="font-size: 0.85rem;">--</span>
+          </div>
+        </div>
+
+        <div class="macro-card">
+          <div class="macro-label">USD / INR</div>
+          <div class="macro-val">
+            <span id="usdinrPrice">--</span>
+            <span style="font-size: 0.75rem; color: var(--text-dim);">Forex</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Market Drivers -->
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-size: 0.85rem; color: var(--text-muted);" id="marketDriversContainer">
+        <strong>Primary Catalysts:</strong> <span id="marketDriversText">Loading real-time market drivers...</span>
+      </div>
+    </section>
+
+    <!-- Top Positive Opportunities -->
+    <section>
+      <div class="section-title">
+        <span>🟢</span>
+        <h2>TOP POSITIVE OPPORTUNITIES</h2>
+      </div>
+
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 60px;">Rank</th>
+              <th>Company & Symbol</th>
+              <th>Catalyst</th>
+              <th>Price (1D Move)</th>
+              <th>Volume Ratio</th>
+              <th>Priced-In</th>
+              <th>Opportunity</th>
+              <th>Confidence</th>
+              <th style="text-align: right;">Deep Dive</th>
+            </tr>
+          </thead>
+          <tbody id="positivesTableBody">
+            <tr>
+              <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                Loading positive market opportunities...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Top Negative Opportunities -->
+    <section>
+      <div class="section-title">
+        <span>🔴</span>
+        <h2>TOP NEGATIVE OPPORTUNITIES</h2>
+      </div>
+
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 60px;">Rank</th>
+              <th>Company & Symbol</th>
+              <th>Headwind / Risk</th>
+              <th>Price (1D Move)</th>
+              <th>Volume Ratio</th>
+              <th>Priced-In</th>
+              <th>Conviction</th>
+              <th>Confidence</th>
+              <th style="text-align: right;">Deep Dive</th>
+            </tr>
+          </thead>
+          <tbody id="negativesTableBody">
+            <tr>
+              <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                Loading negative catalysts and risk vectors...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Watchlist & Sector Ripple Grid -->
+    <div class="card-grid">
+      <!-- Watchlist -->
+      <div class="feature-card">
+        <h3>🟡 WATCHLIST (Interesting Developments Awaiting Confirmation)</h3>
+        <div id="watchlistContainer" style="font-size: 0.85rem;">
+          <p style="color: var(--text-dim);">No pending items on watchlist.</p>
+        </div>
+      </div>
+
+      <!-- Sector Impact & Second Order -->
+      <div class="feature-card">
+        <h3>🌐 SECTOR IMPACT & SECOND-ORDER EFFECTS</h3>
+        <div id="sectorImpactContainer" style="font-size: 0.85rem; line-height: 1.6;">
+          <p><strong>Strongest Sectors:</strong> Aerospace & Defense, Capital Goods & Electricals, Power Generation</p>
+          <p style="margin-top: 6px;"><strong>Lagging Sectors:</strong> Global Discretionary IT, Aviation (fuel sensitivity)</p>
+          <p style="margin-top: 6px;"><strong>Second-Order Ripples:</strong></p>
+          <ul style="padding-left: 20px; color: var(--text-muted); margin-top: 4px;">
+            <li>Heavy EPC contract awards accelerate sub-orders for wire & cable fabricators (Polycab, KEI).</li>
+            <li>Crude benchmark swings induce margin dispersion between upstream E&P and paint makers.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock Deep-Dive Modal -->
+  <div class="modal-overlay" id="stockModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <div style="display: flex; align-items: baseline; gap: 12px;">
+            <h2 id="modalStockName" style="font-size: 1.4rem; font-weight: 800; color: #ffffff;">Stock Name</h2>
+            <span id="modalStockSym" style="font-size: 0.9rem; color: var(--text-dim); font-weight: 600;">SYMBOL.NS</span>
+            <span id="modalSectorPill" class="regime-pill" style="font-size: 0.75rem;">Sector</span>
+          </div>
+          <div style="margin-top: 4px; font-size: 1.1rem; font-weight: 700;">
+            <span id="modalPrice">₹0.00</span>
+            <span id="modalPriceChange" style="font-size: 0.85rem; margin-left: 6px;">+0.00%</span>
+          </div>
+        </div>
+        <button class="btn-close" onclick="closeModal()">✕</button>
+      </div>
+
+      <!-- Key Scores Row -->
+      <div class="macro-grid" style="margin-bottom: 24px;">
+        <div class="macro-card">
+          <div class="macro-label">Opportunity Score</div>
+          <div class="macro-val pos" id="modalOppScore">--/100</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Confidence</div>
+          <div class="macro-val" id="modalConfScore" style="color: var(--accent-cyan);">--/100</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Priced-In Score</div>
+          <div class="macro-val" id="modalPricedInScore" style="color: var(--accent-amber);">--/10</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Volume Multiple</div>
+          <div class="macro-val" id="modalVolMultiple">--x</div>
+        </div>
+      </div>
+
+      <!-- Catalyst & Event Description -->
+      <div style="background: rgba(10, 14, 23, 0.5); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
+        <div style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase;">Primary Catalyst & Event</div>
+        <div id="modalEventTitle" style="font-size: 0.95rem; font-weight: 600; margin-top: 4px; color: #ffffff;">--</div>
+        <div id="modalEventSummary" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; line-height: 1.5;">--</div>
+        <div id="modalSources" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px;"><strong>Verified Sources:</strong> --</div>
+      </div>
+
+      <!-- Bull Case & Bear Case -->
+      <div class="modal-grid-2">
+        <div class="thesis-box bull-box">
+          <div style="font-weight: 700; color: var(--accent-green); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>🟢</span> BULL THESIS
+          </div>
+          <div id="modalBullCase" style="color: var(--text-main); font-size: 0.85rem; line-height: 1.5;">--</div>
+        </div>
+
+        <div class="thesis-box bear-box">
+          <div style="font-weight: 700; color: var(--accent-red); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>🔴</span> BEAR THESIS & RISKS
+          </div>
+          <div id="modalBearCase" style="color: var(--text-main); font-size: 0.85rem; line-height: 1.5;">--</div>
+        </div>
+      </div>
+
+      <!-- Fundamental Dimensions Matrix -->
+      <div style="background: rgba(10, 14, 23, 0.5); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 20px;">
+        <div style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; margin-bottom: 10px;">
+          Fundamental Impact Dimensions (0–10 Scale)
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Revenue</div>
+            <div id="modalDimRev" style="font-weight: 700; font-size: 1.1rem; color: var(--accent-cyan);">--</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Profit</div>
+            <div id="modalDimProf" style="font-weight: 700; font-size: 1.1rem; color: var(--accent-green);">--</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Margin</div>
+            <div id="modalDimMargin" style="font-weight: 700; font-size: 1.1rem; color: var(--accent-amber);">--</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Cash Flow</div>
+            <div id="modalDimCash" style="font-weight: 700; font-size: 1.1rem; color: var(--accent-cyan);">--</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Strategic</div>
+            <div id="modalDimStrat" style="font-weight: 700; font-size: 1.1rem; color: #a855f7;">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Statements & Multiples -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; font-size: 0.8rem;">
+        <div class="macro-card">
+          <div class="macro-label">Trailing P/E</div>
+          <div class="macro-val" id="modalPE">--</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Forward P/E</div>
+          <div class="macro-val" id="modalFwdPE">--</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">P/B Ratio</div>
+          <div class="macro-val" id="modalPB">--</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Dividend Yield</div>
+          <div class="macro-val" id="modalDiv">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

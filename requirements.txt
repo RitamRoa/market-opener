@@ -1,0 +1,11 @@
+# Local Indian Stock Market Intelligence Engine
+# ZERO API KEYS / ZERO PAID DATA SERVICES
+yfinance>=0.2.36
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+feedparser>=6.0.10
+pandas>=2.0.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.6.0
+rich>=13.7.0
