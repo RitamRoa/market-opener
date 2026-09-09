@@ -6,31 +6,54 @@
 
 TOP NEWS
 
-1. VA Tech Wabag Ltd (WABAG) — Positive
-   VA Tech Wabag secured ₹100-250 crore order from Reliance Industries; shares rise 3%
+1. Hindustan Aeronautics Ltd (HAL) — Positive
+   Defence stocks: The Defence Acquisition Council approved defence procurement proposals worth around Rs 1.10 lakh cro
 
    What happened:
-   VA Tech Wabag Ltd has announced: VA Tech Wabag secured ₹100-250 crore order from Reliance Industries; shares rise 3%
+   Hindustan Aeronautics Ltd has announced: The Defence Acquisition Council approved defence procurement proposals worth around Rs 1.10 lakh crore, with nearly 98% of purchases to be sourced from Indian companies. The move is likely to keep defence stocks such as HAL, BEL, Paras Defence, BEML and Astra Microwave in focus. The approvals cover requirements of the Army, Navy and Air Force.
 
    Why it matters:
-   Securing this contract valued at ₹100–250 Cr strengthens VA Tech Wabag Ltd's executable order book and enhances forward revenue visibility. The ultimate earnings realization will depend on the execution schedule and operational project margins, which were not separately disclosed.
+   The apex defence procurement clearance by the Defence Acquisition Council (DAC) establishes a sizeable multi-year capital outlay pipeline under indigenous manufacturing guidelines. For exposed defence contractors like Hindustan Aeronautics Ltd, this expands the forward addressable procurement pool. Commercial recognition remains strictly contingent on subsequent RFP issuance, bidding, and contract finalization rather than immediate booked revenue.
 
    Fundamental impact:
-   Positive — reinforces executable order book and improves forward revenue visibility.
+   Positive — broadens forward defence procurement pipeline under indigenous manufacturing guidelines (commercial revenue contingent on subsequent contract awards).
 
    Key financial implication:
-   The ₹100–250 Cr order expands executable order book visibility, with the upper end representing ~6.1% of annual revenue (₹4,097 Cr). Earnings realization will depend on execution schedule and project margins.
+   Represents multi-year forward capital procurement pipeline under DAC clearance. Does not constitute immediate booked revenue or executable order book until individual contracts are tendered and awarded.
 
    Time horizon:
-   Medium Term
+   Long Term
 
    Sources:
-   Upstox
+   The Economic Times
 
 ------------------------------------------------------------
 
-2. Biocon Ltd (BIOCON) — Positive
-   Biocon shares rise 2% on 10-year Pertuzumab supply deal for breast cancer therapy in Brazil
+2. ICICI Lombard General Insurance Co Ltd (ICICIGI) — Negative
+   Irdai fines ICICI Lombard Rs 1 crore for outsourcing, vendor management lapses
+
+   What happened:
+   ICICI Lombard General Insurance Co Ltd has announced: The Insurance Regulatory and Development Authority of India has imposed a ₹1 crore penalty on ICICI Lombard General Insurance for lapses in outsourcing, vendor management and corporate governance. The regulator said the insurer failed to classify event management services involving agents of other insurers as outsourced activities or report related expenses.
+
+   Why it matters:
+   The regulatory scrutiny, adverse inspection observations, or penalty introduces procedural compliance overhead for ICICI Lombard General Insurance Co Ltd, necessitating corrective remediations and management attention.
+
+   Fundamental impact:
+   Negative — introduces regulatory compliance friction and near-term remediation overhead.
+
+   Key financial implication:
+   Disclosed transaction figure of ₹1.0 Cr.
+
+   Time horizon:
+   Short to Medium Term
+
+   Sources:
+   The Economic Times
+
+------------------------------------------------------------
+
+3. Biocon Ltd (BIOCON) — Positive
+   Secures 10-year Pertuzumab supply deal for breast cancer therapy in Brazil
 
    What happened:
    Biocon Ltd has announced: Biocon shares rose after the company secured a 10-year Pertuzumab supply contract in Brazil. The consortium with Bahiafarma and Bionovis received full allocation under the country’s PDP programme, providing access to around 70% of public-sector demand.
@@ -48,12 +71,81 @@ TOP NEWS
    Medium Term
 
    Sources:
-   The Economic Times
+   Business Standard
 
 ------------------------------------------------------------
 
-3. IFCI Ltd (IFCI) — Positive
-   IFCI shares slide 7% after stellar 30% monthly surge amid NSE IPO buzz
+4. Garuda Construction and Engineering Ltd (GARUDA) — Positive
+   Garuda Construction secures tower construction project in Saudi Arabia
+
+   What happened:
+   Garuda Construction and Engineering Ltd has announced: Garuda Construction and Engineering was locked in 5% upper circuit at Rs 187.95 after the company's subsidiary Dream City Builders has secured a contract for building 93-storey landmark tower in Jeddah, Kingdom of Saudi Arabia.
+
+   Why it matters:
+   Securing this project contract expands Garuda Construction and Engineering Ltd's ongoing execution pipeline and strengthens operational continuity over the project lifecycle.
+
+   Fundamental impact:
+   Positive — reinforces executable order book and improves forward revenue visibility.
+
+   Key financial implication:
+   Financial magnitude cannot be reliably quantified from disclosed information.
+
+   Time horizon:
+   Medium Term
+
+   Sources:
+   Business Standard
+
+------------------------------------------------------------
+
+5. GE Vernova T&D India Ltd (GVT&D) — Positive
+   GE Vernova secures HDVC contract from Power Grid Corp
+
+   What happened:
+   GE Vernova T&D India Ltd has announced: GE Vernova T&D soared 8.50% to Rs 4,734 after the firm received a contract from Power Grid Corporation of India to establish an High Voltage Direct Current (HVDC) LCC terminal station for evacuating renewable energy.
+
+   Why it matters:
+   Securing this wind power project Letter of Intent (LoI) strengthens GE Vernova T&D India Ltd's executable project pipeline in renewable EPC. Conversion into formalized execution contracts will provide medium-term revenue visibility.
+
+   Fundamental impact:
+   Positive — reinforces executable order book and improves forward revenue visibility.
+
+   Key financial implication:
+   Financial magnitude cannot be reliably quantified from disclosed information.
+
+   Time horizon:
+   Medium Term
+
+   Sources:
+   Business Standard
+
+------------------------------------------------------------
+
+6. Suzlon Energy Ltd (SUZLON) — Positive
+   Suzlon secures 200 MW wind order from Ayana Renewable Power
+
+   What happened:
+   Suzlon Energy Ltd has announced: Suzlon Energy has secured a maiden 200 MW wind energy order from Ayana Renewable Power. This marks Suzlon's third DevCo-led wind order across two states - Madhya Pradesh and Andhra Pradesh.
+
+   Why it matters:
+   Securing this wind power project Letter of Intent (LoI) strengthens Suzlon Energy Ltd's executable project pipeline in renewable EPC. Conversion into formalized execution contracts will provide medium-term revenue visibility.
+
+   Fundamental impact:
+   Positive — reinforces executable order book and improves forward revenue visibility.
+
+   Key financial implication:
+   Financial magnitude cannot be reliably quantified from disclosed information.
+
+   Time horizon:
+   Medium Term
+
+   Sources:
+   Business Standard
+
+------------------------------------------------------------
+
+7. IFCI Ltd (IFCI) — Positive
+   7%
 
    What happened:
    IFCI Ltd has announced: IFCI shares fell 7% after a sharp recent rally, after the stock rallied nearly 30% in a month amid Sebi’s approval of the NSE IPO. IFCI has indirect exposure to NSE through its stake in Stock Holding Corporation of India.
@@ -75,37 +167,14 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-4. Garuda Construction and Engineering Ltd (GARUDA) — Positive
-   Garuda Construction hits the roof after bagging tower construction project in Saudi Arabia
-
-   What happened:
-   Garuda Construction and Engineering Ltd has announced: Garuda Construction and Engineering was locked in 5% upper circuit at Rs 187.95 after the company's subsidiary Dream City Builders has secured a contract for building 93-storey landmark tower in Jeddah, Kingdom of Saudi Arabia.
-
-   Why it matters:
-   Bagging this landmark international construction mandate expands Garuda Construction and Engineering Ltd's project backlog into high-growth GCC construction markets and validates large-scale execution capability.
-
-   Fundamental impact:
-   Positive — reinforces executable order book and improves forward revenue visibility.
-
-   Key financial implication:
-   Financial magnitude cannot be reliably quantified from disclosed information.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   Business Standard
-
-------------------------------------------------------------
-
-5. Shiprocket (BigFoot Retail Solutions) (SHIPROCKET) — Positive
-   Shiprocket shares gain 3% as Q1 net loss narrows to Rs 14 crore in first earnings post IPO; revenue up 34% YoY
+8. Shiprocket (BigFoot Retail Solutions) (SHIPROCKET) — Positive
+   Shiprocket 3% as Q1 net loss narrows to Rs 14 crore in first earnings post IPO; revenue up 34% YoY
 
    What happened:
    Shiprocket (BigFoot Retail Solutions) has announced: Shiprocket reported a narrower consolidated net loss of Rs 13.7 crore in Q1FY27, compared with Rs 18 crore a year earlier, while revenue from operations rose 33.8% year-on-year to Rs 592.1 crore. Adjusted EBITDA turned positive at Rs 8.9 crore, supported by strong growth in the emerging business, while core business revenue grew 22%.
 
    Why it matters:
-   Operational throughput expansion alongside narrowing net losses highlights improving operating leverage and unit economics for Shiprocket (BigFoot Retail Solutions), supporting progress toward operational breakeven.
+   Operational throughput expansion alongside volume growth highlights improving operating leverage and unit economics for Shiprocket (BigFoot Retail Solutions).
 
    Fundamental impact:
    Positive — demonstrates improving operating leverage and operational turnaround.
@@ -115,6 +184,29 @@ TOP NEWS
 
    Time horizon:
    Short to Medium Term
+
+   Sources:
+   The Economic Times
+
+------------------------------------------------------------
+
+9. Oil and Natural Gas Corporation Ltd (ONGC) — Positive
+   Nifty slips below critical support level of 23,600 as market reacts to global economic uncertainties
+
+   What happened:
+   Oil and Natural Gas Corporation Ltd has announced: Indian equity indices experienced a decline on Monday, with the Nifty 50 falling below 23,800. Rising Brent crude oil prices and investor preference for smaller stocks impacted large-cap performance. The market also faces pressure from increased IPOs and fund-raising activities. US bond yields are nearing their 2023 highs, causing investor discomfort. Mid and small-cap segments show stronger activity while large caps lag.
+
+   Why it matters:
+   Brent crude prices sustaining above $100/bbl substantially expand upstream price realization and operating cash generation per barrel for Oil and Natural Gas Corporation Ltd, despite statutory windfall tax adjustments.
+
+   Fundamental impact:
+   Positive — higher realizations expand unit operating margins and cash generation.
+
+   Key financial implication:
+   Every sustained $10/bbl rise in global crude realizations enhances upstream operating EBITDA, subject to prevailing domestic windfall levies.
+
+   Time horizon:
+   Medium Term
 
    Sources:
    The Economic Times

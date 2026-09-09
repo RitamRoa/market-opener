@@ -39,7 +39,7 @@ TOP NEWS
    The apex defence procurement clearance by the Defence Acquisition Council (DAC) establishes a sizeable multi-year capital outlay pipeline under indigenous manufacturing guidelines. For exposed defence contractors like Hindustan Aeronautics Ltd, this expands the forward addressable procurement pool. Commercial recognition remains strictly contingent on subsequent RFP issuance, bidding, and contract finalization rather than immediate booked revenue.
 
    Fundamental impact:
-   Positive — broadens defence procurement pipeline and expands addressable bidding opportunity under indigenous manufacturing programs.
+   Positive — broadens forward defence procurement pipeline under indigenous manufacturing guidelines (commercial revenue contingent on subsequent contract awards).
 
    Key financial implication:
    Represents multi-year forward capital procurement pipeline under DAC clearance. Does not constitute immediate booked revenue or executable order book until individual contracts are tendered and awarded.
@@ -52,7 +52,30 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-3. Shakti Pumps (India) Ltd (SHAKTIPUMP) — Positive
+3. Enviro Infra Engineers Ltd (EIEL) — Positive
+   Bags ₹190 crore NTPC wind project order
+
+   What happened:
+   Enviro Infra Engineers Ltd has announced: Enviro Infra Engineers' share price rose nearly 10% after securing a ₹189.99 crore EPC contract for a 180 MW wind power project in Maharashtra. The stock peaked at ₹215.35, strengthening its position in renewable energy despite mixed performance over various time periods.
+
+   Why it matters:
+   Securing this contract valued at ₹190.0 Cr strengthens Enviro Infra Engineers Ltd's executable order book and enhances forward revenue visibility. The ultimate earnings realization will depend on the execution schedule and operational project margins, which were not separately disclosed.
+
+   Fundamental impact:
+   Positive — reinforces executable order book and improves forward revenue visibility.
+
+   Key financial implication:
+   Disclosed order value of ₹190.0 Cr represents a substantial contract inflow representing ~15.0% of annual revenue (₹1,264 Cr). Earnings conversion will depend on delivery schedules and execution margins.
+
+   Time horizon:
+   Medium Term
+
+   Sources:
+   Livemint
+
+------------------------------------------------------------
+
+4. Shakti Pumps (India) Ltd (SHAKTIPUMP) — Positive
    Shakti Pumps wins order worth Rs 235 cr from MSEDCL
 
    What happened:
@@ -75,7 +98,7 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-4. Coforge Ltd (COFORGE) — Negative
+5. Coforge Ltd (COFORGE) — Negative
    Chairman Om Prakash Bhatt resigns following internal audit findings
 
    What happened:
@@ -98,37 +121,14 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-5. VA Tech Wabag Ltd (WABAG) — Positive
-   Secures Jamnagar Effluent Treatment Plant contract from Reliance Industries
+6. Larsen & Toubro Ltd (LT) — Positive
+   Secures offshore EPCIC order from ONGC
 
    What happened:
-   VA Tech Wabag Ltd has announced: VA Tech Wabag shares surged 9% following a new contract win from Reliance Industries for an Effluent Treatment Plant at Jamnagar. The project is set for completion within 13 months, with advanced treatment technologies being implemented.
+   Larsen & Toubro Ltd has announced: For additional development of Ratna-I (ADR I) and NLM-14 project
 
    Why it matters:
-   Winning this Effluent Treatment Plant mandate from Reliance Industries at Jamnagar validates technical credentials in complex industrial water treatment and reinforces executable domestic backlog.
-
-   Fundamental impact:
-   Positive — reinforces executable order book and improves forward revenue visibility.
-
-   Key financial implication:
-   Financial magnitude cannot be reliably quantified from disclosed information.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   Livemint
-
-------------------------------------------------------------
-
-6. Enviro Infra Engineers Ltd (EIEL) — Positive
-   Receives LoI for 180 MW wind power project
-
-   What happened:
-   Enviro Infra Engineers Ltd has announced: From Tata Power Renewable Energy
-
-   Why it matters:
-   Securing this wind power project Letter of Intent (LoI) strengthens Enviro Infra Engineers Ltd's executable project pipeline in renewable EPC. Conversion into formalized execution contracts will provide medium-term revenue visibility.
+   Securing this project contract expands Larsen & Toubro Ltd's ongoing execution pipeline and strengthens operational continuity over the project lifecycle.
 
    Fundamental impact:
    Positive — reinforces executable order book and improves forward revenue visibility.
@@ -167,14 +167,14 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-8. Hindustan Zinc Ltd (HINDZINC) — Positive
-   Signs transportation contract with MFL India
+8. VA Tech Wabag Ltd (WABAG) — Positive
+   Secures Jamnagar Effluent Treatment Plant contract from Reliance Industries
 
    What happened:
-   Hindustan Zinc Ltd has announced: For deployment of 30 e-trucks for its logistics operations
+   VA Tech Wabag Ltd has announced: VA Tech Wabag shares surged 9% following a new contract win from Reliance Industries for an Effluent Treatment Plant at Jamnagar. The project is set for completion within 13 months, with advanced treatment technologies being implemented.
 
    Why it matters:
-   Securing this project contract expands Hindustan Zinc Ltd's ongoing execution pipeline and strengthens operational continuity over the project lifecycle.
+   Winning this Effluent Treatment Plant mandate from Reliance Industries at Jamnagar validates technical credentials in complex industrial water treatment and reinforces executable domestic backlog.
 
    Fundamental impact:
    Positive — reinforces executable order book and improves forward revenue visibility.
@@ -186,11 +186,34 @@ TOP NEWS
    Medium Term
 
    Sources:
+   Livemint
+
+------------------------------------------------------------
+
+9. ASM Technologies Ltd (ASMTECH) — Positive
+   Board of ASM Technologies approves preferential issue of 10.78 lakh shares
+
+   What happened:
+   ASM Technologies Ltd has announced: At meeting held on 09 September 2026
+
+   Why it matters:
+   The ₹526 crore equity infusion backed by marquee investors substantially fortifies ASM Technologies Ltd's balance sheet and liquidity reserves, providing non-debt growth capital for capacity expansion.
+
+   Fundamental impact:
+   Positive — strengthens balance sheet equity capital and funds capex without incremental debt service (nominal equity dilution).
+
+   Key financial implication:
+   Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution.
+
+   Time horizon:
+   Short to Medium Term
+
+   Sources:
    Business Standard
 
 ------------------------------------------------------------
 
-9. AU Small Finance Bank Ltd (AUBANK) — Positive
+10. AU Small Finance Bank Ltd (AUBANK) — Positive
    RBI approves ICICI AMC to acquire up to 9.95% stake
 
    What happened:
@@ -213,57 +236,11 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-10. TMCV Limited (TMCV) — Positive
-   Tata Motors Limited: General Updates
-
-   What happened:
-   TMCV Limited has announced: Tata Motors Limited has informed the Exchange about notices to Shareholders and Creditors regarding Composite Scheme of Amalgamation amongst Tata Motors Limited, TMF Holdings Limited and TMF Business Services Limited.
-
-   Why it matters:
-   The proposed transaction strategically expands TMCV Limited's asset portfolio and operational generation footprint, offering economies of scale once consolidation is finalized.
-
-   Fundamental impact:
-   Positive — expands operational scale and asset generation footprint.
-
-   Key financial implication:
-   Financial magnitude cannot be reliably quantified from disclosed information.
-
-   Time horizon:
-   Long Term
-
-   Sources:
-   NSE Corporate Announcement
-
-------------------------------------------------------------
-
-11. ASM Technologies Ltd (ASMTECH) — Positive
-   Raises ₹526 crore via preferential issue backed by marquee investors
-
-   What happened:
-   ASM Technologies Ltd has announced: ASM Technologies share price rallied sharply on Wednesday to hit a record high after the company approved a Rs 526-crore preferential issue involving entities linked to Radhakishan Damani and Mukul Agrawal. The engineering services firm will issue 10.78 lakh shares at Rs 4,875 apiece, while existing investors will gain fresh exposure.
-
-   Why it matters:
-   The ₹526 crore equity infusion backed by marquee investors substantially fortifies ASM Technologies Ltd's balance sheet and liquidity reserves, providing non-debt growth capital for capacity expansion.
-
-   Fundamental impact:
-   Positive — improves credit profile and lowers financing cost of capital.
-
-   Key financial implication:
-   Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution.
-
-   Time horizon:
-   Short to Medium Term
-
-   Sources:
-   The Economic Times
-
-------------------------------------------------------------
-
-12. Oil and Natural Gas Corporation Ltd (ONGC) — Positive
+11. Oil and Natural Gas Corporation Ltd (ONGC) — Positive
    Brent crude crosses $100/bbl on geopolitical tensions; upstream realization expands
 
    What happened:
-   Oil and Natural Gas Corporation Ltd has announced: At 11:53 a.m. ET, the Dow Jones Industrial Average fell 0.75%, the S&amp;P 500 shed 0.45%, the Nasdaq Composite lost 0.62%
+   Oil and Natural Gas Corporation Ltd has announced: The rupee touched a low of 95.23 against the dollar before settling at 95.11 as Brent crude topped $100 a barrel; dealers cited RBI intervention in spot and swap markets
 
    Why it matters:
    Brent crude prices sustaining above $100/bbl substantially expand upstream price realization and operating cash generation per barrel for Oil and Natural Gas Corporation Ltd, despite statutory windfall tax adjustments.
@@ -278,7 +255,99 @@ TOP NEWS
    Medium Term
 
    Sources:
-   Livemint
+   Business Standard
+
+------------------------------------------------------------
+
+12. IRB Infrastructure Developers Ltd (IRB) — Positive
+   IRB Infra records 25% growth in consolidated toll revenue in Aug'26
+
+   What happened:
+   IRB Infrastructure Developers Ltd has announced: Commenting on this, Amitabh Murarka, Dy. CEO, IRB Infrastructure Developers said, Our strong toll revenue performance in August 2026 reflects the sustained traffic growth across our assets. The growth in traffic, coupled with the tariff revision implemented at the beginning of FY27, has further supported our revenue performance. He further said, With robust GDP growth indicating sustained economic activity, coupled with the onset of the festive season beginning with the Ganesh Festival, we expect the positive traffic momentum to continue. We remain well positioned to deliver stronger toll revenue growth in the coming months, further strengthening our overall growth momentum.
+
+   Why it matters:
+   A 25% YoY expansion in monthly toll revenue demonstrates healthy vehicular throughput and favorable tariff revisions across operational highway concessions for IRB Infrastructure Developers Ltd.
+
+   Fundamental impact:
+   Positive — demonstrates improving operating leverage and operational turnaround.
+
+   Key financial implication:
+   Stronger monthly toll dispatches translate directly into EBITDA expansion and debt-servicing capability across concession SPVs.
+
+   Time horizon:
+   Short to Medium Term
+
+   Sources:
+   Business Standard
+
+------------------------------------------------------------
+
+13. Eureka Forbes Ltd (EUREKAFORB) — Positive
+   CRISIL upgrades credit ratings to 'AA' with stable outlook
+
+   What happened:
+   Eureka Forbes Ltd has announced: Eureka Forbes (EFL) said that Crisil Ratings has upgraded its rating on the corporate credit rating of to 'Crisil AA/Stable' from 'Crisil AA-/Positive'.
+
+   Why it matters:
+   CRISIL's credit rating upgrade to 'AA' reflects strengthening operating performance and steady cash generation for Eureka Forbes Ltd, lowering prospective borrowing costs on future capital raises.
+
+   Fundamental impact:
+   Positive — improves credit profile and lowers financing cost of capital.
+
+   Key financial implication:
+   Tightens borrowing yield spreads and broadens institutional access to domestic corporate bond markets.
+
+   Time horizon:
+   Short to Medium Term
+
+   Sources:
+   Business Standard
+
+------------------------------------------------------------
+
+14. Multi Commodity Exchange of India Ltd (MCX) — Positive
+   MCX, IAMAI sign MoU to bring fintech solutions to commodity markets
+
+   What happened:
+   Multi Commodity Exchange of India Ltd has announced: MCX and IAMAI have signed an MoU to set up a Commodity Markets Innovation Council aimed at driving fintech-led innovation in India’s commodity markets. The industry-led platform will bring together stakeholders, startups and technology players to identify challenges, develop digital solutions, improve market access and support wider participation and efficiency.
+
+   Why it matters:
+   Entering into this strategic agreement / MoU establishes multi-year commercial alignment for Multi Commodity Exchange of India Ltd, expanding reach and securing collaborative distribution or supply channels.
+
+   Fundamental impact:
+   Positive — establishes multi-year commercial alignment and strengthens forward business development.
+
+   Key financial implication:
+   Financial magnitude cannot be reliably quantified from disclosed information.
+
+   Time horizon:
+   Medium Term
+
+   Sources:
+   The Economic Times
+
+------------------------------------------------------------
+
+15. Hindustan Zinc Ltd (HINDZINC) — Positive
+   Deploys 30 electric trucks with MFL India for logistics decarbonization
+
+   What happened:
+   Hindustan Zinc Ltd has entered into a transportation agreement with MFL India for deployment of 30 e-trucks for its logistics operations.
+
+   Why it matters:
+   Deploying 30 electric trucks for operational logistics improves transport fleet efficiency and reduces unit freight operating costs for Hindustan Zinc Ltd, advancing supply chain decarbonization.
+
+   Fundamental impact:
+   Positive — improves operational logistics efficiency and accelerates supply chain decarbonization.
+
+   Key financial implication:
+   Optimizes ongoing operating logistics expenditure and lowers carbon intensity with zero capital outlay on transport fleet assets.
+
+   Time horizon:
+   Short to Medium Term
+
+   Sources:
+   Business Standard
 
 ------------------------------------------------------------
 

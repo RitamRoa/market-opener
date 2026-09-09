@@ -63,8 +63,14 @@ def main():
     parser.add_argument(
         "--max-items", 
         type=int, 
-        default=12, 
-        help="Maximum number of TOP NEWS developments to feature (default: 12)"
+        default=15, 
+        help="Maximum number of TOP NEWS developments to feature (default: 15)"
+    )
+    parser.add_argument(
+        "--cutoff",
+        type=str,
+        default="23:59:59",
+        help="Historical cutoff time in HH:MM:SS format (default: 23:59:59 IST)"
     )
 
     args = parser.parse_args()
@@ -73,18 +79,20 @@ def main():
     # Check if a past date report was requested from cache
     if args.date:
         cached_report = get_fna_report_by_date(args.date)
-        if cached_report and not args.debug and cached_report.get("item_count", 0) >= 5:
+        if cached_report and not args.debug and cached_report.get("item_count", 0) >= 1:
             print(cached_report["report_text"])
             return
-        elif cached_report and not args.debug:
-            # Stale single-item report in cache; run fresh scan to provide comprehensive daily coverage
-            pass
         elif not cached_report:
-            print(f"[!] No archived report found for date {args.date}. Running fresh scan...")
+            print(f"[!] Reconstructing historical intelligence for date {args.date}...")
 
     # Run the FNA pipeline
     try:
-        items, report_text = run_fna_pipeline(max_items=args.max_items, debug=args.debug)
+        items, report_text = run_fna_pipeline(
+            max_items=args.max_items, 
+            debug=args.debug, 
+            target_date=args.date,
+            cutoff_time=args.cutoff
+        )
         print("\n" + report_text)
     except KeyboardInterrupt:
         print("\n[!] Scan interrupted by user.")

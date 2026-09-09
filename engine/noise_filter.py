@@ -85,7 +85,11 @@ CLICKBAIT_PATTERNS = [
     r"\bopening\s+bell\b",
     r"\bgift\s+nifty\b",
     r"\bwhere\s+to\s+invest\b",
-    r"\bhow\s+to\s+invest\b"
+    r"\bhow\s+to\s+invest\b",
+    r"\b(?:indian\s+)?equity\s+markets?\s+(?:hit|drop|fall|plunge|tumble|slip|gain|rise|climb|end|close)\b",
+    r"\bmarkets?\s+hit\s+(?:a\s+)?\w+[-:]\s*week\s+low\b",
+    r"\bwhy\s+(?:the\s+)?stock\s+market\s+is\s+down\b",
+    r"\bmarket\s+wrap(?:up)?\b"
 ]
 
 CLICKBAIT_REGEX = re.compile("|".join(CLICKBAIT_PATTERNS), re.IGNORECASE)
