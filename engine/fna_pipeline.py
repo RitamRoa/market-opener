@@ -21,6 +21,13 @@ from engine.entity_mapper import resolve_entity_from_text, validate_event_entity
 from engine.deduplicator import deduplicate_and_cluster_news
 from engine.fna_analyzer import synthesize_fna_item
 from engine.db import save_fna_event, save_fna_report, get_connection
+from engine.candidate_engine import (
+    compute_research_importance_model,
+    assign_materiality_tier,
+    map_event_to_discovery_bucket,
+    rank_daily_research_candidates,
+    format_candidate_debug_log
+)
 
 logger = logging.getLogger(__name__)
 
@@ -163,10 +170,15 @@ def select_daily_top_news(qualified_tier_a: List[Dict[str, Any]], qualified_tier
     return top_news
 
 
+from engine.run_context import RunContext, set_current_context, get_current_context
+from engine.db import cache_news
+
+
 def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Optional[str] = None, cutoff_time: str = "23:59:59") -> Tuple[List[Dict[str, Any]], str]:
     """
     Executes the event-first FNA pipeline and returns (top_news_items, formatted_report_text).
     Supports live scanning and historical date reconstruction via target_date in Asia/Kolkata timezone.
+    Enforces central RunContext and zero current data leakage into past dates.
     """
     now_ist = datetime.now(IST)
 
@@ -185,14 +197,24 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
         cutoff_dt = now_ist
         is_historical = False
 
+    # Initialize and register global RunContext (Section 7)
+    ctx = RunContext(
+        mode="historical" if is_historical else "live",
+        target_date=iso_date,
+        cutoff_datetime=cutoff_dt,
+        timezone="Asia/Kolkata"
+    )
+    set_current_context(ctx)
+
     all_raw_events = []
 
-    if is_historical:
+    if ctx.is_historical:
         print(f"[INFO] Running in Historical Mode for {report_date_str} (Cutoff: {cutoff_dt.strftime('%H:%M:%S IST')})...")
         logger.info(f"Historical Mode: target_date={target_date}, cutoff={cutoff_dt.isoformat()}")
 
-        # Strict Historical Rule: NEVER fetch live web feeds for a past date
-        # Retrieve archived developments strictly from SQLite news_cache
+        # Strict Historical Rule (Sections 7-10): NEVER fetch live web feeds for a past date
+        # Retrieve archived developments strictly from SQLite news_cache AND fna_events
+        seen_titles = set()
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -201,24 +223,61 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
             """)
             cached_rows = cursor.fetchall()
 
+            cursor.execute("""
+                SELECT headline, what_happened, why_it_matters, sources, event_date, created_at, symbol, company_name
+                FROM fna_events
+            """)
+            event_rows = cursor.fetchall()
+
         for row in cached_rows:
             pub_str = row["published_at"] or ""
             dt = parse_datetime_ist(pub_str)
             if not dt:
                 continue
-            # Strict Cutoff Rule: Event must be published on target_date and <= cutoff_dt
-            if dt.strftime("%Y-%m-%d") == target_date and dt <= cutoff_dt:
+            # Strict Cutoff Rule: Event publication time must be on target_date and <= cutoff_dt
+            if ctx.is_eligible(dt):
+                title = row["title"] or ""
+                clean_title = re.sub(r"\s+", " ", title.strip().lower())
+                if clean_title in seen_titles:
+                    continue
+                seen_titles.add(clean_title)
                 all_raw_events.append({
                     "title": row["title"],
-                    "summary": row["summary"],
-                    "source": row["source"],
-                    "url": row["url"],
+                    "summary": row["summary"] or "",
+                    "source": row["source"] or "Financial News",
+                    "url": row["url"] or "",
                     "filing_symbol": row["symbol"],
                     "published_at": pub_str,
                     "publication_date": dt.isoformat(),
                     "event_date": target_date,
                     "discovery_date": dt.strftime("%Y-%m-%d"),
-                    "is_primary": "nse" in row["source"].lower() or "bse" in row["source"].lower()
+                    "is_primary": "nse" in str(row["source"]).lower() or "bse" in str(row["source"]).lower()
+                })
+
+        for row in event_rows:
+            ev_date_str = row["event_date"] or row["created_at"] or ""
+            dt = parse_datetime_ist(ev_date_str)
+            if not dt:
+                continue
+            # Strict Cutoff Rule: Event publication time must be on target_date and <= cutoff_dt
+            if ctx.is_eligible(dt):
+                title = row["headline"] or ""
+                clean_title = re.sub(r"\s+", " ", title.strip().lower())
+                if clean_title in seen_titles:
+                    continue
+                seen_titles.add(clean_title)
+                src = row["sources"] or "Historical Archive"
+                all_raw_events.append({
+                    "title": title,
+                    "summary": f"{row['what_happened']} {row['why_it_matters']}".strip(),
+                    "source": src,
+                    "url": "",
+                    "filing_symbol": row["symbol"],
+                    "published_at": ev_date_str,
+                    "publication_date": dt.isoformat(),
+                    "event_date": target_date,
+                    "discovery_date": dt.strftime("%Y-%m-%d"),
+                    "is_primary": "nse" in str(src).lower() or "bse" in str(src).lower()
                 })
 
         if not all_raw_events:
@@ -248,8 +307,16 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
         logger.info("Collecting financial news feeds...")
         raw_news = collect_market_news()
 
-        # Process Announcements
+        # Process Announcements & Cache to news_cache for historical track record
         for ann in raw_announcements:
+            cache_news({
+                "title": ann.get("title", ""),
+                "summary": ann.get("summary", ""),
+                "source": ann.get("source", "NSE Corporate Announcements"),
+                "url": ann.get("url", ""),
+                "published_at": ann.get("published_at", ""),
+                "symbol": ann.get("symbol") or ann.get("raw_symbol"),
+            })
             pub_str = ann.get("published_at", "")
             dt = parse_datetime_ist(pub_str) or now_ist
             all_raw_events.append({
@@ -264,6 +331,7 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
                 "discovery_date": now_ist.strftime("%Y-%m-%d"),
                 "is_primary": True
             })
+
 
         # Process News items
         for news in raw_news:
@@ -358,14 +426,13 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
     clusters = deduplicate_and_cluster_news(resolved_events, similarity_threshold=0.35)
     logger.info(f"Clustered into {len(clusters)} distinct canonical fundamental events.")
 
-    # Step 5: Fundamental Analysis & Two-Stage Selection (Section 6, 7 & 8)
+    # Step 5: Research Candidate Evaluation & Materiality Tiering
     print("[INFO] Fetching market and financial data...")
-    print("[INFO] Evaluating fundamental materiality & tiers...")
+    print("[INFO] Evaluating fundamental materiality & research scores...")
     print("[INFO] Synthesizing Sharekhan-style report...")
     logger.info("Synthesizing Event-Specific Fundamental Intelligence...")
     
-    qualified_tier_a = []
-    qualified_tier_b = []
+    evaluated_candidates = []
     seen_companies = {}
 
     for cluster in clusters:
@@ -376,68 +443,67 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
         c_title = cluster.get("title", "")[:60]
         c_comp = cluster.get("company_name", sym)
 
-        # Synthesize Sharekhan-style item (strictly Positive or Negative only across 16 canonical types)
-        item = synthesize_fna_item(cluster)
+        # Synthesize Sharekhan-style item (strictly Positive or Negative only across canonical types)
+        item = synthesize_fna_item(cluster, debug=debug)
         if not item:
-            if debug:
-                print(f"[CANDIDATE] {c_comp} — {c_title}\n[STATUS] Tier C\n[REASON] Ambiguous or non-binary directional catalyst\n[DECISION] REJECT\n")
             continue
 
         direction = item.get("fundamental_direction")
         if direction not in ["Positive", "Negative"]:
             if debug:
-                print(f"[CANDIDATE] {c_comp} — {c_title}\n[STATUS] Tier C\n[REASON] Direction {direction} is not strictly Positive/Negative\n[DECISION] REJECT\n")
+                print(f"[CANDIDATE] {c_comp} — {c_title}\n[STATUS] Rejected\n[REASON] Direction {direction} is not strictly Positive/Negative\n[DECISION] REJECT\n")
             continue
 
-        tier = item.get("tier", "Tier B")
-        company_key = item.get("symbol") or item.get("company_name", sym)
+        # Evaluate using 10-Factor Research Importance Model
+        score_dict = compute_research_importance_model(item)
+        item["research_scores"] = score_dict
+        item["research_importance_score"] = score_dict["total_score"]
+        item["discovery_bucket"] = map_event_to_discovery_bucket(item.get("event_type", ""))
 
-        # Stage 1: Categorization into Materiality Tiers
+        # Assign Materiality Tier
+        tier = assign_materiality_tier(item, score_dict["total_score"])
+        item["tier"] = tier
+
         if tier == "Tier C":
             if debug:
-                print(f"[CANDIDATE] {c_comp} — {item.get('headline')}\n[STATUS] Tier C\n[REASON] Low materiality or routine disclosure\n[DECISION] REJECT\n")
+                print(format_candidate_debug_log(item, decision="REJECT (Tier C)"))
             continue
 
-        # Avoid duplicate events for same company; retain highest materiality
+        company_key = item.get("symbol") or item.get("company_name", sym)
+
+        # Retain highest importance candidate per company
         if company_key in seen_companies:
-            prev_tier, prev_item = seen_companies[company_key]
-            if item.get("materiality_score", 0) > prev_item.get("materiality_score", 0):
-                if prev_tier == "Tier A" and prev_item in qualified_tier_a:
-                    qualified_tier_a.remove(prev_item)
-                elif prev_tier == "Tier B" and prev_item in qualified_tier_b:
-                    qualified_tier_b.remove(prev_item)
-                seen_companies[company_key] = (tier, item)
-                if tier == "Tier A":
-                    qualified_tier_a.append(item)
-                else:
-                    qualified_tier_b.append(item)
+            prev_item = seen_companies[company_key]
+            if item.get("research_importance_score", 0) > prev_item.get("research_importance_score", 0):
+                evaluated_candidates.remove(prev_item)
+                seen_companies[company_key] = item
+                evaluated_candidates.append(item)
                 save_fna_event(item)
             continue
 
-        seen_companies[company_key] = (tier, item)
-        if tier == "Tier A":
-            qualified_tier_a.append(item)
-        else:
-            qualified_tier_b.append(item)
+        seen_companies[company_key] = item
+        evaluated_candidates.append(item)
         save_fna_event(item)
 
-    # Step 6: Relative Daily Ranking across valid events (Section 7 & 32-34)
-    top_news = select_daily_top_news(qualified_tier_a, qualified_tier_b, max_items=max_items)
+    # Step 6: Relative Daily Ranking & Bucket Balancing across valid candidates
+    top_news = rank_daily_research_candidates(evaluated_candidates, max_items=max_items)
 
-    # Log candidate selection decisions matching Section 41
+    # Log candidate selection decisions in debug mode
     if debug:
-        for it in top_news:
-            fin_info = f"Order/Val: ₹{it.get('order_value_cr')} Cr" if it.get("order_value_cr") else "Impact established qualitatively"
-            print(f"[CANDIDATE] {it.get('company_name')} — {it.get('headline')}\n[STATUS] {it.get('tier')}\n[REASON] {fin_info} | {it.get('event_type')}\n[DECISION] INCLUDED\n")
+        selected_ids = {it.get("news_id") or it.get("headline") for it in top_news}
+        for it in evaluated_candidates:
+            is_sel = (it.get("news_id") or it.get("headline")) in selected_ids
+            decision_str = "INCLUDED" if is_sel else "OMITTED (Ranked below daily threshold)"
+            print(format_candidate_debug_log(it, decision=decision_str))
 
     fna_items = top_news
 
-    # Print pipeline diagnostic counters matching Section 37
+    # Print pipeline diagnostic counters
     print(f"[INFO] Raw developments: {len(all_raw_events)}")
     print(f"[INFO] Potentially fundamental: {len(material_events)}")
     print(f"[INFO] Entity-validated: {len(resolved_events)}")
     print(f"[INFO] Canonical events: {len(clusters)}")
-    print(f"[INFO] FNA-worthy: {len(qualified_tier_a) + len(qualified_tier_b)}")
+    print(f"[INFO] Research candidates: {len(evaluated_candidates)}")
     print(f"[INFO] Final TOP NEWS: {len(top_news)}")
 
     logger.info(f"Selected {len(top_news)} TOP NEWS stories for final bulletin.")
@@ -491,26 +557,34 @@ def format_top_news_report(report_date_str: str, items: List[Dict[str, Any]]) ->
             clean_ticker = item.get("symbol", "").replace(".NS", "").replace(".BO", "")
             company_header = f"{item.get('company_name')} ({clean_ticker}) — {item.get('fundamental_direction')}"
             
+            clean_headline = re.sub(r"[\r\n]+", " ", str(item.get("headline", ""))).strip()
+            what_happened = re.sub(r"[\r\n]+", " ", str(item.get("what_happened", ""))).strip()
+            why_it_matters = re.sub(r"[\r\n]+", " ", str(item.get("why_it_matters", ""))).strip()
+            fund_impact = re.sub(r"[\r\n]+", " ", str(item.get("fundamental_impact", ""))).strip()
+            fin_implication = re.sub(r"[\r\n]+", " ", str(item.get("key_financial_implication", ""))).strip()
+            time_horizon = re.sub(r"[\r\n]+", " ", str(item.get("time_horizon", ""))).strip()
+            sources = re.sub(r"[\r\n]+", " ", str(item.get("sources", ""))).strip()
+
             lines.append(f"{i}. {company_header}")
-            lines.append(f"   {item.get('headline')}")
+            lines.append(f"   {clean_headline}")
             lines.append("")
             lines.append("   What happened:")
-            lines.append(f"   {item.get('what_happened')}")
+            lines.append(f"   {what_happened}")
             lines.append("")
             lines.append("   Why it matters:")
-            lines.append(f"   {item.get('why_it_matters')}")
+            lines.append(f"   {why_it_matters}")
             lines.append("")
             lines.append("   Fundamental impact:")
-            lines.append(f"   {item.get('fundamental_impact')}")
+            lines.append(f"   {fund_impact}")
             lines.append("")
             lines.append("   Key financial implication:")
-            lines.append(f"   {item.get('key_financial_implication')}")
+            lines.append(f"   {fin_implication}")
             lines.append("")
             lines.append("   Time horizon:")
-            lines.append(f"   {item.get('time_horizon')}")
+            lines.append(f"   {time_horizon}")
             lines.append("")
             lines.append("   Sources:")
-            lines.append(f"   {item.get('sources')}")
+            lines.append(f"   {sources}")
             lines.append("")
             lines.append("-" * 60)
             lines.append("")
@@ -519,4 +593,5 @@ def format_top_news_report(report_date_str: str, items: List[Dict[str, Any]]) ->
     lines.append("TOP NEWS COMPLETE")
     lines.append("=" * 60)
 
-    return "\n".join(lines)
+    # Normalize entire text to ensure pure standard Unix newlines and zero carriage returns
+    return "\n".join(lines).replace("\r\n", "\n").replace("\r", " ")

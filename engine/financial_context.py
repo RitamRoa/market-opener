@@ -130,11 +130,56 @@ def parse_semantic_financial_metrics(text: str) -> SemanticMetricsList:
             "description": f"Operating update: Revenue +{rev_growth}% YoY, loss narrowed to ₹{loss_val} Cr"
         })
 
-    # 5. Revenue / Sales single patterns (handles "revenue rises 12% to Rs 3,927 cr", etc.)
+    # 5. Equity Capital Raise patterns (Preferential Issue, QIP, Rights Issue, Warrants)
+    equity_pattern = r"(?:preferential\s+(?:issue|allotment)|qip|qualified\s+institutional\s+placement|rights\s+issue|equity\s+infusion|warrants?)\b[^.]{0,80}?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    for match in re.finditer(equity_pattern, text, re.IGNORECASE):
+        val = float(match.group(1).replace(",", ""))
+        metrics.append({
+            "metric": "EQUITY_RAISE",
+            "metric_type": "EQUITY_RAISE",
+            "value_cr": val,
+            "amount_cr": val,
+            "range_low_cr": None,
+            "range_high_cr": None,
+            "range_text": f"₹{val:,.1f} Cr",
+            "description": f"Equity capital raise of ₹{val:,.1f} Cr"
+        })
+
+    rev_equity_pattern = r"(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b[^.]{0,60}?\b(?:preferential\s+(?:issue|allotment)|qip|rights\s+issue|equity\s+infusion)\b"
+    for match in re.finditer(rev_equity_pattern, text, re.IGNORECASE):
+        val = float(match.group(1).replace(",", ""))
+        if not any(m["metric"] == "EQUITY_RAISE" and abs(m["value_cr"] - val) < 0.01 for m in metrics):
+            metrics.append({
+                "metric": "EQUITY_RAISE",
+                "metric_type": "EQUITY_RAISE",
+                "value_cr": val,
+                "amount_cr": val,
+                "range_low_cr": None,
+                "range_high_cr": None,
+                "range_text": f"₹{val:,.1f} Cr",
+                "description": f"Equity capital raise of ₹{val:,.1f} Cr"
+            })
+
+    # 6. Toll Revenue patterns
+    toll_pattern = r"(?:toll\s+revenue|toll\s+collection)\b[^.]{0,80}?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    for match in re.finditer(toll_pattern, text, re.IGNORECASE):
+        val = float(match.group(1).replace(",", ""))
+        metrics.append({
+            "metric": "TOLL_REVENUE",
+            "metric_type": "TOLL_REVENUE",
+            "value_cr": val,
+            "amount_cr": val,
+            "range_low_cr": None,
+            "range_high_cr": None,
+            "range_text": f"₹{val:,.1f} Cr",
+            "description": f"Toll revenue of ₹{val:,.1f} Cr"
+        })
+
+    # 7. Revenue / Sales single patterns (handles "revenue rises 12% to Rs 3,927 cr", etc.)
     rev_pattern = r"(?:revenue|topline|sales|turnover)\b[^.]{0,80}?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
     for match in re.finditer(rev_pattern, text, re.IGNORECASE):
         val = float(match.group(1).replace(",", ""))
-        if not any(m["metric"] == "REVENUE" and abs(m["value_cr"] - val) < 0.01 for m in metrics):
+        if not any(m["metric"] in ["REVENUE", "EQUITY_RAISE", "TOLL_REVENUE"] and abs(m["value_cr"] - val) < 0.01 for m in metrics):
             metrics.append({
                 "metric": "REVENUE",
                 "metric_type": "REVENUE",
@@ -479,8 +524,20 @@ def evaluate_relative_materiality(symbol: str, event_text: str) -> Dict[str, Any
             result["financial_implication_text"] = f"Regulatory penalty / demand of ₹{val_cr:,.1f} Cr imposed."
         result["scale_materiality_score"] = 8.0
 
+    elif metric_type == "EQUITY_RAISE":
+        result["financial_implication_text"] = (
+            f"Preferential equity infusion of ₹{val_cr:,.1f} Cr directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution."
+        )
+        result["scale_materiality_score"] = 8.5
+
+    elif metric_type == "TOLL_REVENUE":
+        result["financial_implication_text"] = (
+            f"Monthly toll revenue collection of ₹{val_cr:,.1f} Cr reflects strong vehicular throughput and tariff realization across operating highway concessions."
+        )
+        result["scale_materiality_score"] = 8.0
+
     else:
-        result["financial_implication_text"] = f"Disclosed transaction figure of ₹{val_cr:,.1f} Cr."
+        result["financial_implication_text"] = f"Disclosed financial figure of ₹{val_cr:,.1f} Cr."
         result["scale_materiality_score"] = 6.5
 
     return result

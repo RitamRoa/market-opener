@@ -44,6 +44,18 @@ FEED_REGISTRY = [
     {
         "source": "Business Standard Markets",
         "url": "https://www.business-standard.com/rss/markets-106.rss",
+    },
+    {
+        "source": "Google News (Policy & Capex)",
+        "url": "https://news.google.com/rss/search?q=Cabinet+approves+procurement+tender+infrastructure+PLI+defence+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+    {
+        "source": "Google News (Commodities & Energy)",
+        "url": "https://news.google.com/rss/search?q=crude+oil+Brent+petrol+diesel+OMC+refiners+copper+steel+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+    {
+        "source": "Google News (Industry Dispatches)",
+        "url": "https://news.google.com/rss/search?q=toll+revenue+auto+sales+power+demand+cement+dispatches+telecom+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
     }
 ]
 

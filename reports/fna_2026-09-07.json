@@ -1,0 +1,58 @@
+[
+  {
+    "event_id": "154477c9ed4f",
+    "company_name": "VA Tech Wabag Ltd",
+    "symbol": "WABAG.NS",
+    "company_role": "contractor",
+    "economic_variable": "executable order backlog & forward revenue visibility",
+    "event_type": "ORDER_CONTRACT",
+    "tier": "Tier A",
+    "headline": "Secured \u20b9100-250 crore order from Reliance Industries",
+    "what_happened": "VA Tech Wabag Ltd has announced: VA Tech Wabag Ltd has announced: VA Tech Wabag secured \u20b9100-250 crore order from Reliance Industries; shares rise 3% upstox.com The project selection validates VA Tech Wabag Ltd's technical qualification and strengthens its competitive market share in this operational vertical.",
+    "why_it_matters": "Securing this contract valued at \u20b9100\u2013250 Cr strengthens VA Tech Wabag Ltd's executable order book and enhances forward revenue visibility. The ultimate earnings realization will depend on the execution schedule and operational project margins, which were not separately disclosed.",
+    "fundamental_direction": "Positive",
+    "classification": "POSITIVE",
+    "fundamental_impact": "Positive \u2014 reinforces executable order book and improves forward revenue visibility.",
+    "key_financial_implication": "The \u20b9100\u2013250 Cr order expands executable order book visibility, with the upper end representing ~6.1% of annual revenue (\u20b94,097 Cr). Earnings realization will depend on execution schedule and project margins.",
+    "time_horizon": "Medium Term",
+    "order_value_cr": 250.0,
+    "range_text": "\u20b9100\u2013250 Cr",
+    "relative_revenue_pct": 6.1,
+    "materiality_score": 8.5,
+    "sources": "Upstox",
+    "event_date": "Mon, 07 Sep 2026 06:11:22 GMT",
+    "structured_facts": {
+      "event_type": "ORDER_CONTRACT",
+      "company": "VA Tech Wabag Ltd",
+      "date": "Mon, 07 Sep 2026 06:11:22 GMT",
+      "amount": 250.0,
+      "amount_metric": "order_value",
+      "counterparty": null,
+      "status": "awarded",
+      "duration": null,
+      "source_facts": [
+        "VA Tech Wabag secured \u20b9100-250 crore order from Reliance Industries",
+        "shares rise 3% - upstox",
+        "com VA Tech Wabag Ltd has announced: VA Tech Wabag secured \u20b9100-250 crore order from Reliance Industries",
+        "shares rise 3% upstox",
+        "com The project selection validates VA Tech Wabag Ltd's technical qualification and strengthens its competitive market share in this operational vertical"
+      ]
+    },
+    "research_scores": {
+      "fundamental_materiality": 8.5,
+      "financial_significance": 7.5,
+      "strategic_significance": 7.5,
+      "company_exposure": 10.0,
+      "freshness": 9.5,
+      "evidence_strength": 7.5,
+      "source_quality": 7.5,
+      "novelty": 8.5,
+      "investor_relevance": 9.0,
+      "quantifiability": 10.0,
+      "research_importance_score": 8.47,
+      "total_score": 8.47
+    },
+    "research_importance_score": 8.47,
+    "discovery_bucket": "COMPANY_EVENTS"
+  }
+]

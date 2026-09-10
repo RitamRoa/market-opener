@@ -1351,6 +1351,62 @@ INDIAN_EQUITIES = [
         "sector": "Telecom Equipment & Optical Fibre",
         "aliases": ["sterlite technologies", "stl tech"],
         "exclusions": []
+    },
+    {
+        "symbol": "DBL.NS",
+        "name": "Dilip Buildcon Ltd",
+        "sector": "Infrastructure & EPC",
+        "aliases": ["dilip buildcon limited", "dilip buildcon", "dbl"],
+        "exclusions": []
+    },
+    {
+        "symbol": "REDINGTON.NS",
+        "name": "Redington Ltd",
+        "sector": "Technology Distribution",
+        "aliases": ["redington limited", "redington india", "redington"],
+        "exclusions": []
+    },
+    {
+        "symbol": "IOC.NS",
+        "name": "Indian Oil Corporation Ltd",
+        "sector": "Oil Refining & Marketing",
+        "aliases": ["indian oil corporation", "indian oil", "iocl", "ioc"],
+        "exclusions": []
+    },
+    {
+        "symbol": "BPCL.NS",
+        "name": "Bharat Petroleum Corporation Ltd",
+        "sector": "Oil Refining & Marketing",
+        "aliases": ["bharat petroleum corporation", "bharat petroleum", "bpcl"],
+        "exclusions": []
+    },
+    {
+        "symbol": "HPCL.NS",
+        "name": "Hindustan Petroleum Corporation Ltd",
+        "sector": "Oil Refining & Marketing",
+        "aliases": ["hindustan petroleum corporation", "hindustan petroleum", "hpcl"],
+        "exclusions": []
+    },
+    {
+        "symbol": "INDIANB.NS",
+        "name": "Indian Bank",
+        "sector": "Public Sector Banking",
+        "aliases": ["indian bank"],
+        "exclusions": []
+    },
+    {
+        "symbol": "SRGHFL.BO",
+        "name": "SRG Housing Finance Ltd",
+        "sector": "Housing Finance",
+        "aliases": ["srg housing finance", "srg housing", "srg"],
+        "exclusions": []
+    },
+    {
+        "symbol": "JUNIPER.NS",
+        "name": "Juniper Hotels Ltd",
+        "sector": "Hospitality & Renewable Energy",
+        "aliases": ["juniper hotels", "juniper green energy", "juniper green", "juniper"],
+        "exclusions": []
     }
 ]
 
@@ -1379,63 +1435,64 @@ def get_company_meta(symbol: str) -> Dict[str, Any]:
     }
 
 
+def get_entity_by_symbol(sym: str) -> Optional[Dict[str, Any]]:
+    for eq in INDIAN_EQUITIES:
+        if eq.get("symbol") == sym:
+            return eq
+    return None
+
+
+EXTERNAL_ECONOMIC_EXPOSURE_REGISTRY = [
+    {
+        "keywords": ["defence acquisition council", "dac", "capital acquisition", "weapons", "radar", "electronic warfare", "su-30mki", "fighter aircraft"],
+        "condition": lambda t: any(k in t for k in ["defence acquisition council", "dac", "capital acquisition"]) and any(k in t for k in ["weapons", "radar", "electronic warfare", "fighter", "aircraft", "su-30mki", "air force", "armed forces"]),
+        "resolver": lambda t: (
+            get_entity_by_symbol("BEL.NS") if any(k in t for k in ["radar", "electronic warfare", "electronics"]) else
+            get_entity_by_symbol("HAL.NS")
+        ),
+        "mechanism": "Verified economic exposure: defense capital procurement to domestic aerospace / electronics manufacturers"
+    },
+    {
+        "keywords": ["copper", "smelter"],
+        "condition": lambda t: "copper" in t and any(k in t for k in ["surge", "rally", "record high", "supply disruption", "smelter", "lme"]),
+        "resolver": lambda t: get_entity_by_symbol("HINDCOPPER.NS"),
+        "mechanism": "Verified economic exposure: pure-play domestic copper miner and producer"
+    },
+    {
+        "keywords": ["hvdc", "transmission corridor"],
+        "condition": lambda t: any(k in t for k in ["hvdc", "transmission corridor", "evacuate renewable"]),
+        "resolver": lambda t: get_entity_by_symbol("POWERGRID.NS"),
+        "mechanism": "Verified economic exposure: national grid utility & HVDC transmission infrastructure"
+    },
+    {
+        "keywords": ["crude", "brent", "oil"],
+        "condition": lambda t: any(k in t for k in ["brent", "crude oil", "crude benchmark", "crude price"]) and any(k in t for k in ["upstream", "realization", "production", "producers", "rally", "spikes past"]),
+        "resolver": lambda t: get_entity_by_symbol("ONGC.NS"),
+        "mechanism": "Verified economic exposure: upstream crude realization beneficiary"
+    },
+    {
+        "keywords": ["crude", "brent", "omc", "fuel retail"],
+        "condition": lambda t: any(k in t for k in ["brent", "crude oil"]) and any(k in t for k in ["marketing margin", "omc", "fuel retail", "retailer", "under-recovery"]),
+        "resolver": lambda t: get_entity_by_symbol("IOC.NS"),
+        "mechanism": "Verified economic exposure: fuel retail marketing margin compression"
+    }
+]
+
+
+
 def resolve_external_event_beneficiary(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
     """
-    Identifies listed Indian corporate beneficiaries for macro, government, commodity, or industry events.
-    Rules:
-      - Defence DAC / MoD procurement approvals: maps to primary exposed manufacturers (HAL, BEL, Astra, Solar, BDL).
-      - Commodity price rallies (copper): maps to upstream pure-play producer (Hindustan Copper).
-      - Crude oil surge / oil > $100: maps to upstream explorer (ONGC / Oil India).
-      - Highway toll revenue / traffic growth: maps to concessionaire (IRB Infra).
-      - Power Grid / HVDC transmission tenders: maps to winning equipment vendor (GE Vernova T&D).
+    Identifies listed Indian corporate beneficiaries for macro, government, commodity, or industry events
+    using a structured general reference database of economic mechanisms and verified operational exposures.
     """
     text_lower = text.lower()
+    for reg in EXTERNAL_ECONOMIC_EXPOSURE_REGISTRY:
+        if reg["condition"](text_lower):
+            entity = reg["resolver"](text_lower)
+            if entity:
+                return entity, reg["mechanism"]
+    return None, "No direct beneficiary without explicit exposure evidence."
 
-    # 1. Defence Procurement Approvals (DAC / Acceptance of Necessity / MoD Capital Outlay)
-    if any(k in text_lower for k in ["defence acquisition council", "dac", "acceptance of necessity", "aon", "defence procurement", "defence ministry approves", "defence exports"]):
-        # Check specific subsystem mentions
-        if any(w in text_lower for w in ["electronic warfare", "ew system", "radar", "communication", "avionics"]):
-            meta = get_company_meta("BEL.NS")
-            return meta, "Resolved as primary defence electronics beneficiary 'Bharat Electronics' (BEL.NS) for DAC radar/EW procurement."
-        elif any(w in text_lower for w in ["ammunition", "propellant", "explosive", "warhead", "pinaka"]):
-            meta = get_company_meta("SOLARINDS.NS")
-            return meta, "Resolved as munitions beneficiary 'Solar Industries' (SOLARINDS.NS) for defence munitions procurement."
-        elif any(w in text_lower for w in ["missile", "torpedo", "anti-tank", "sam"]):
-            meta = get_company_meta("BDL.NS")
-            return meta, "Resolved as missile manufacturer 'Bharat Dynamics' (BDL.NS) for defence missile procurement."
-        elif any(w in text_lower for w in ["microwave", "rf", "telemetry"]):
-            meta = get_company_meta("ASTRAMICRO.NS")
-            return meta, "Resolved as RF subsystem supplier 'Astra Microwave' (ASTRAMICRO.NS) for defence procurement."
-        else:
-            meta = get_company_meta("HAL.NS")
-            return meta, "Resolved as aerospace/defence contractor 'Hindustan Aeronautics' (HAL.NS) for DAC capital procurement proposals."
-
-    # 2. Copper Commodity Rally / Commercial Coal Block Allocation
-    if "copper" in text_lower and any(w in text_lower for w in ["surge", "surges", "price surge", "rallies", "rally", "coal block", "preferred bidder", "mining lease"]):
-        meta = get_company_meta("HINDCOPPER.NS")
-        return meta, "Resolved as upstream copper producer 'Hindustan Copper' (HINDCOPPER.NS) on commodity price/reserve catalyst."
-
-    # 3. Crude Oil Price Surge / Brent > $100 / Energy Commodity (Section 14 & 15)
-    if any(k in text_lower for k in ["crude oil", "brent crude", "oil tops", "oil surges", "crude boils", "oil prices surge", "oil crosses", "oil surges past", "oil above $100"]):
-        meta = get_company_meta("ONGC.NS")
-        return meta, "Resolved as upstream oil exploration & production producer 'Oil and Natural Gas Corporation' (ONGC.NS) for crude price realization surge."
-
-    # 4. Highway Toll Revenue Growth / NHAI Concessions (Section 16)
-    if any(k in text_lower for k in ["toll revenue", "toll collection", "highway toll"]):
-        meta = get_company_meta("IRB.NS")
-        return meta, "Resolved as highway concessionaire 'IRB Infrastructure Developers' (IRB.NS) for toll revenue expansion."
-
-    # 5. HVDC / Transmission Grid Outlay
-    if any(w in text_lower for w in ["hvdc", "terminal station", "765kv", "transmission line", "grid evacuating"]):
-        meta = get_company_meta("GVT&D.NS")
-        return meta, "Resolved as grid technology vendor 'GE Vernova T&D India' (GVT&D.NS) for HVDC/transmission outlay."
-
-    # 6. Life Insurance NBP / VNB Momentum
-    if any(w in text_lower for w in ["life insurance", "life insurer", "new business premium", "nbp growth", "vnb margin"]):
-        meta = get_company_meta("ICICIPRULI.NS")
-        return meta, "Resolved as life insurance beneficiary 'ICICI Prudential Life' (ICICIPRULI.NS) for industry premium expansion."
-
-    return None, "No external macro/policy beneficiary matched."
 
 
 def is_multi_company_roundup(text: str) -> bool:
