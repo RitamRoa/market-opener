@@ -38,7 +38,49 @@ ROUTINE_FILING_PATTERNS = [
     r"\bcompliance\s+certificate\b",
     r"\brecord\s+date\s+for\s+annual\s+general\s+meeting\b",
     r"\bbook\s+closure\s+intimation\b",
-    r"\bclarification\s+sought\s+from\b"
+    r"\bclarification\s+sought\s+from\b",
+    # SAST & Takeover Regulation shareholder disclosures
+    r"\b(?:sebi\s+)?\(?\s*sast\s*\)?\s+regulations?\b",
+    r"\bdisclosure\s+under\s+(?:sebi\s+)?(?:takeover|sast)\b",
+    r"\bsubstantial\s+acquisition\s+of\s+shares\s+and\s+takeovers\b",
+    r"\bregulation\s+29\s*\(\s*[12]\s*\)",
+    r"\bregulation\s+10\s*\(\s*[56]\s*\)",
+    r"\bregulation\s+31\s*\(\s*[1234]\s*\)",
+    r"\bregulation\s+7\s*\(\s*2\s*\)",
+    # Routine AGM / EGM compliance & extensions
+    r"\bbusiness\s+responsibility\s+and\s+sustainability\s+report(?:ing)?\b",
+    r"\bbrsr\b",
+    r"\breg\.?\s*34\s*\(\s*1\s*\)\s+annual\s+report\b",
+    r"\bannual\s+report\s+(?:for\s+the\s+financial\s+year|under\s+reg)",
+    r"\bcopy\s+of\s+annual\s+report\b",
+    r"\bnotice\s+of\s+(?:the\s+)?(?:\d+(?:st|nd|rd|th)?\s+)?annual\s+general\s+meeting\b",
+    r"\bnotice\s+of\s+(?:the\s+)?agm\b",
+    r"\bintimation\s+of\s+(?:the\s+)?(?:agm|annual\s+general\s+meeting)\b",
+    r"\bnotice\s+of\s+(?:the\s+)?(?:\d+(?:st|nd|rd|th)?\s+)?extraordinary\s+general\s+meeting\b",
+    r"\bnotice\s+of\s+(?:the\s+)?egm\b",
+    r"\bextension\s+of\s+time\s+for\s+(?:holding\s+)?(?:the\s+)?(?:annual\s+general\s+meeting|agm)\b",
+    r"\bextension\s+of\s+agm\b",
+    r"\bapproval\s+for\s+extension\s+of\s+(?:time\s+for\s+holding\s+)?agm\b",
+    # Routine ESOPs and stock option grants / allotments
+    r"\bgrant\s+of\s+(?:options|stock\s+options|esops?|performance\s+stock\s+units|psus|rsus)\b",
+    r"\ballotment\s+of\s+(?:equity\s+)?shares\s+(?:under|pursuant\s+to)\s+esop\b",
+    r"\bgrant\s+of\s+options\b",
+    # Exchange queries on price/volume movements
+    r"\bclarification\s+on\s+price\s+movement\b",
+    r"\bsignificant\s+movement\s+in\s+price\b",
+    r"\bspurt\s+in\s+volume\b",
+    r"\bsignificant\s+increase\s+in\s+volume\b",
+    # Routine administrative changes
+    r"\bletter\s+to\s+shareholders\b",
+    r"\bcommunication\s+to\s+shareholders\b",
+    r"\bchange\s+in\s+designation\s+of\s+director\b",
+    r"\bappointment\s+of\s+(?:cost\s+auditor|secretarial\s+auditor|internal\s+auditor|scrutinizer)\b",
+    r"\bresignation\s+of\s+(?:secretarial\s+auditor|cost\s+auditor)\b",
+    r"\brevision\s+of\s+board\s+meeting\b",
+    r"\bpostponement\s+of\s+board\s+meeting\b",
+    r"\brecord\s+date\s+for\s+(?:purpose\s+of\s+)?(?:final\s+)?dividend\b",
+    r"\btrading\s+approval\s+for\s+conversion\s+of\s+partly\s+paid\b",
+    r"\bintimation\s+under\s+regulation\s+30\s+and\s+51\b.*?\bplease\s+refer\s+the\s+attachment\b"
 ]
 
 ROUTINE_REGEX = re.compile("|".join(ROUTINE_FILING_PATTERNS), re.IGNORECASE)
@@ -107,18 +149,25 @@ STALE_REGEX = re.compile("|".join(STALE_QUARTER_PATTERNS), re.IGNORECASE)
 # Keywords indicating genuine fundamental developments
 MATERIAL_KEYWORDS = [
     r"\border\b", r"\bcontract\b", r"\bbagged\b", r"\bsecures\b", r"\bwon\b", r"\bdeal\b",
-    r"\bloi\b", r"\bletter\s+of\s+intent\b", r"\bmou\b", r"\bproject\b", r"\bwind\s+power\b", r"\bsolar\s+plant\b", r"\brenewable\b",
+    r"\bloi\b", r"\bletter\s+of\s+intent\b", r"\bmou\b", r"\bwind\s+power\b", r"\bsolar\s+plant\b", r"\brenewable\b",
+    r"\bproject\s+(?:win|order|mandate|contract)\b", r"\bcommissioning\s+of\s+project\b",
     r"\bexpansion\b", r"\bcommission(?:ing|ed|s)?\b", r"\bnew\s+plant\b", r"\bcapex\b", r"\bcommercial\s+production\b",
     r"\bacquisition\b", r"\bacquires\b", r"\bmerger\b", r"\bamalgamation\b", r"\bscheme\s+of\s+amalgamation\b", r"\bjoint\s+venture\b", r"\bjv\b",
-    r"\bfda\b", r"\busfda\b", r"\bform\s+483\b", r"\bwarning\s+letter\b", r"\bapproval\b", r"\bclears?\b", r"\bclearance\b",
-    r"\bsebi\b", r"\brbi\b", r"\bpenalty\b", r"\btax\s+demand\b", r"\bsearch\s+and\s+seizure\b",
-    r"\bnet\s+profit\b", r"\bebitda\b", r"\brevenue\b", r"\bquarterly\s+results\b", r"\bearnings\b",
+    r"\bfda\b", r"\busfda\b", r"\bform\s+483\b", r"\bwarning\s+letter\b",
+    r"\b(?:product|drug|clinical|environmental|tender|usfda|cdsco|dcgi|dgca|pesa|bis|pngrb)\s+approval\b",
+    r"\bapproves?\s+(?:scheme|amalgamation|merger|capex|order|investment|bonus|dividend|buyback)\b",
+    r"\bsecures?\s+(?:approval|nod|clearance|license)\b", r"\bclears?\b", r"\bclearance\b",
+    r"\bsebi\s+(?:order|penalty|action|probe|investigation|notice|direction|warning)\b", r"\bpenalty\s+by\s+sebi\b",
+    r"\brbi\s+(?:approval|nod|license|clearance|penalty|action|probe|mandate|restrictions?)\b", r"\bpenalty\s+by\s+rbi\b",
+    r"\bpenalty\b", r"\btax\s+demand\b", r"\bsearch\s+and\s+seizure\b",
+    r"\bnet\s+profit\b", r"\bebitda\b", r"\brevenue\s+(?:surges?|rises?|jumps?|grows?|up\s+\d+|down\s+\d+|declines?|slumps?)\b", r"\brevenue\s+growth\b",
+    r"\bquarterly\s+results\b", r"\bearnings\b",
     r"\btoll\s+revenue\b", r"\btoll\s+collection\b", r"\bvolume\s+growth\b", r"\bdispatches\b",
     r"\bpreferential\s+(?:issue|allotment)\b", r"\bcapital\s+infusion\b",
     r"\bratings?\s+upgrades?\b", r"\bratings?\s+downgrades?\b", r"\bcredit\s+ratings?\s+upgrades?\b", r"\bcredit\s+ratings?\s+downgrades?\b",
     r"\bupgrades?\b.*?\b(?:rating|ratings|debt)\b", r"\bdowngrades?\b.*?\b(?:rating|ratings|debt)\b",
     r"\bdebt\s+reduction\b", r"\brepayment\b", r"\bprepayment\b",
-    r"\bresignation\b", r"\bappointed\b", r"\bnew\s+ceo\b", r"\bnew\s+md\b", r"\bauditor\s+resigned\b",
+    r"\bresignation\b", r"\b(?:appoints?|appointed)\s+(?:new\s+)?(?:ceo|md|cfo|chief\s+executive|managing\s+director)\b", r"\bnew\s+ceo\b", r"\bnew\s+md\b", r"\bauditor\s+resigned\b",
     r"\bprice\s+hike\b", r"\btariff\s+revision\b", r"\bprice\s+increase\b",
     r"\bprocurement\b", r"\bdac\b", r"\bdefence\s+acquisition\b", r"\bl1\s+bidder\b", r"\blowest\s+bidder\b", r"\blakh\s+crore\b",
     r"\bcrude\s+oil\b", r"\bbrent\s+crude\b", r"\boil\s+tops\b", r"\boil\s+surges\b", r"\bcopper\b"
@@ -184,7 +233,11 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
 
     # 6. Check routine compliance filings
     if ROUTINE_REGEX.search(text):
-        if not (re.search(r"\b(?:order|contract|fda|acquisition|penalty|expansion)\b", text, re.I)):
+        # Unconditionally reject SAST/Takeover, AGM extensions, ESOPs, price/volume queries, and trading window closures
+        if re.search(r"\b(?:sast|substantial\s+acquisition\s+of\s+shares|takeover\s+regulations?|regulation\s+29|regulation\s+10\s*\(\s*5|regulation\s+31|esop|stock\s+options|agm\s+extension|extension\s+of\s+(?:time\s+for\s+holding\s+)?agm|trading\s+window|spurt\s+in\s+volume|movement\s+in\s+price)\b", text, re.IGNORECASE):
+            return False, "Discarded: routine administrative / compliance / shareholder disclosure filing."
+        # Only allow genuine commercial catalysts if not administrative
+        if not (re.search(r"\b(?:bags?|secures?|awarded\s+(?:order|contract)|turnkey\s+order|epc\s+contract|usfda\b|fda\b|commercial\s+production|expansion\s+project|commissioning|amalgamation)\b", text, re.IGNORECASE)):
             return False, "Discarded: routine administrative / compliance filing (board meet notice, trading window, duplicate share, etc.)."
 
     # 7. ESG Rating Rejection: non-debt sustainability assessment (Section 12 & 13)

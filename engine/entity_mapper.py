@@ -1416,7 +1416,7 @@ SYMBOL_TO_META: Dict[str, Dict[str, Any]] = {item["symbol"]: item for item in IN
 BARE_SYMBOL_TO_META: Dict[str, Dict[str, Any]] = {item["symbol"].replace(".NS", "").replace(".BO", ""): item for item in INDIAN_EQUITIES}
 
 
-def get_company_meta(symbol: str) -> Dict[str, Any]:
+def get_company_meta(symbol: str, text: Optional[str] = None) -> Dict[str, Any]:
     """Returns company metadata for any symbol, generating structured fallback if unindexed."""
     clean_sym = symbol if symbol.endswith(".NS") or symbol.endswith(".BO") else f"{symbol}.NS"
     if clean_sym in SYMBOL_TO_META:
@@ -1426,11 +1426,34 @@ def get_company_meta(symbol: str) -> Dict[str, Any]:
     if bare in BARE_SYMBOL_TO_META:
         return BARE_SYMBOL_TO_META[bare]
 
+    # Attempt to extract genuine corporate name from text if available
+    cand_name = None
+    if text:
+        m_corp = re.search(r"\b([A-Z][A-Za-z0-9\s&.\-]+?\s+(?:Limited|Ltd))\b", text)
+        if m_corp:
+            extracted = m_corp.group(1).strip()
+            b_lower = bare.lower()
+            if (bare.isdigit() or 
+                any(tok in extracted.lower() for tok in b_lower.split() if len(tok) > 2) or 
+                (len(b_lower) > 3 and b_lower[:4] in extracted.lower())):
+                if len(extracted) < 55 and not any(k in extracted.lower() for k in ["exchange", "securities and exchange", "national stock exchange", "bse limited", "board of india"]):
+                    cand_name = extracted
+
+    if not cand_name:
+        if bare.endswith("LIMITED"):
+            cand_name = f"{bare[:-7].strip()} Limited"
+        elif bare.endswith("LTD"):
+            cand_name = f"{bare[:-3].strip()} Ltd"
+        elif bare.isdigit():
+            cand_name = f"BSE Listed Company ({bare})"
+        else:
+            cand_name = f"{bare} Limited"
+
     return {
         "symbol": clean_sym,
-        "name": f"{bare} Limited",
+        "name": cand_name,
         "sector": "Indian Listed Equities",
-        "aliases": [bare.lower()],
+        "aliases": [bare.lower(), cand_name.lower()],
         "exclusions": []
     }
 
@@ -1651,7 +1674,7 @@ def resolve_entity_from_text(text: str, filing_symbol: Optional[str] = None) -> 
     if filing_symbol:
         clean_filing = filing_symbol.strip().upper().replace(".NS", "").replace(".BO", "")
         canonical_sym = f"{clean_filing}.NS"
-        meta = get_company_meta(canonical_sym)
+        meta = get_company_meta(canonical_sym, text=text)
 
         # Check if text explicitly discusses a different subsidiary
         for sub_item in INDIAN_EQUITIES:

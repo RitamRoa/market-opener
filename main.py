@@ -76,15 +76,6 @@ def main():
     args = parser.parse_args()
     setup_logging(args.debug)
 
-    # Check if a past date report was requested from cache
-    if args.date:
-        cached_report = get_fna_report_by_date(args.date)
-        if cached_report and not args.debug and cached_report.get("item_count", 0) >= 1:
-            print(cached_report["report_text"])
-            return
-        elif not cached_report:
-            print(f"[!] Reconstructing historical intelligence for date {args.date}...")
-
     # Run the FNA pipeline
     try:
         items, report_text = run_fna_pipeline(

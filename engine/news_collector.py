@@ -8,10 +8,10 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from engine.db import cache_news
 
 logger = logging.getLogger(__name__)
@@ -116,10 +116,18 @@ def parse_single_feed(feed_meta: Dict[str, str], timeout: int = 8) -> List[Dict[
     return items
 
 
-def collect_market_news(max_workers: int = 5) -> List[Dict[str, Any]]:
+def collect_market_news(target_date: Optional[str] = None, max_workers: int = 6) -> List[Dict[str, Any]]:
     """
-    Fetches all registered public RSS feeds concurrently.
+    Fetches financial news, media, and regulatory sources for the specified research date.
+    If target_date is provided and not today, queries dated search feeds for that exact date.
+    If target_date is today or None, queries standard live feeds.
     """
+    if target_date:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        if target_date != today_str:
+            items, _ = collect_historical_market_news(target_date, max_workers=max_workers)
+            return items
+
     all_news = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(parse_single_feed, feed) for feed in FEED_REGISTRY]
@@ -149,3 +157,57 @@ def search_company_news(company_name: str, symbol: str, days: int = 3) -> List[D
         "url": feed_url
     }
     return parse_single_feed(feed_meta)
+
+
+def build_historical_feed_registry(target_date: str) -> List[Dict[str, str]]:
+    """Constructs dated public news search feeds for target_date (YYYY-MM-DD)."""
+    dt = datetime.strptime(target_date, "%Y-%m-%d")
+    prev_day = (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+    next_day = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    queries = [
+        ("The Economic Times", f"site:economictimes.indiatimes.com after:{prev_day} before:{next_day}"),
+        ("Moneycontrol", f"site:moneycontrol.com after:{prev_day} before:{next_day}"),
+        ("Business Standard", f"site:business-standard.com after:{prev_day} before:{next_day}"),
+        ("Livemint", f"site:livemint.com after:{prev_day} before:{next_day}"),
+        ("Reuters", f"site:reuters.com (India OR Nifty OR Sensex OR stocks) after:{prev_day} before:{next_day}"),
+        ("CNBC-TV18", f"site:cnbctv18.com after:{prev_day} before:{next_day}"),
+        ("Press Information Bureau", f"site:pib.gov.in (Cabinet OR Ministry OR approved OR scheme) after:{prev_day} before:{next_day}"),
+        ("SEBI / Regulators", f"site:sebi.gov.in after:{prev_day} before:{next_day}"),
+        ("Google News (Corporate Actions)", f"Nifty stocks earnings acquisition contract India after:{prev_day} before:{next_day}"),
+        ("Google News (Orders & Disclosures)", f"NSE BSE stocks results order announcement India after:{prev_day} before:{next_day}"),
+    ]
+
+    registry = []
+    for name, q in queries:
+        encoded = urllib.parse.quote(q)
+        url = f"https://news.google.com/rss/search?q={encoded}&hl=en-IN&gl=IN&ceid=IN:en"
+        registry.append({
+            "source": name,
+            "url": url
+        })
+    return registry
+
+
+def collect_historical_market_news(target_date: str, max_workers: int = 6) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+    """
+    Fetches dated public financial news, media, and regulatory sources for target_date.
+    Returns (all_news_items, counts_by_source).
+    """
+    registry = build_historical_feed_registry(target_date)
+    all_news = []
+    source_counts = {feed["source"]: 0 for feed in registry}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_source = {executor.submit(parse_single_feed, feed): feed["source"] for feed in registry}
+        for future in as_completed(future_to_source):
+            src = future_to_source[future]
+            try:
+                items = future.result()
+                source_counts[src] = len(items)
+                all_news.extend(items)
+            except Exception as e:
+                logger.warning(f"Historical news fetcher failed for source '{src}': {e}")
+
+    logger.info(f"Collected total of {len(all_news)} raw historical news articles for {target_date}.")
+    return all_news, source_counts

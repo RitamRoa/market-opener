@@ -51,6 +51,6 @@ def test_historical_mode_never_returns_today_data():
 
 def test_historical_mode_empty_on_missing_date():
     """Requesting a historical date with no records must return empty top_news, NOT fall back to live feeds."""
-    top_news, report_text = run_fna_pipeline(max_items=10, debug=False, target_date="2020-01-01")
+    top_news, report_text = run_fna_pipeline(max_items=10, debug=False, target_date="1970-01-01")
     assert len(top_news) == 0
     assert "No verified corporate disclosures available" in report_text or "TOP NEWS COMPLETE" in report_text

@@ -26,24 +26,35 @@ class RunContext:
     def is_historical(self) -> bool:
         return self.mode == "historical"
 
-    def is_eligible(self, pub_dt: Optional[datetime]) -> bool:
+    def is_eligible(self, pub_dt: Optional[datetime], event_dt: Optional[datetime] = None) -> bool:
         """
-        Enforces Section 8:
-        event publication time <= target-date cutoff
-        For historical mode: event must be on target_date and <= cutoff_datetime.
-        For live mode: event must be <= cutoff_datetime.
+        Enforces hard historical cutoff:
+        - Rejects any source published after the target date or after cutoff_datetime.
+        - If exact publication time is available, respects it (pub_dt <= cutoff_datetime).
+        - Prefers publication timestamp reflecting when information became publicly available.
+        - Never lets current-day news or future developments leak into a past date report.
         """
-        if pub_dt is None:
+        effective_dt = pub_dt if pub_dt is not None else event_dt
+        if effective_dt is None:
             return not self.is_historical
-        if pub_dt.tzinfo is None:
-            pub_dt = pub_dt.replace(tzinfo=IST)
-        else:
-            pub_dt = pub_dt.astimezone(IST)
 
-        if pub_dt > self.cutoff_datetime:
+        if effective_dt.tzinfo is None:
+            effective_dt = effective_dt.replace(tzinfo=IST)
+        else:
+            effective_dt = effective_dt.astimezone(IST)
+
+        # Hard cutoff check against cutoff_datetime (e.g. 2026-09-01 23:59:59 IST)
+        if effective_dt > self.cutoff_datetime:
             return False
+
         if self.is_historical:
-            return pub_dt.strftime("%Y-%m-%d") == self.target_date
+            # Must strictly match the requested target date (or be earlier if historical cutoff permits)
+            # Rejects any item with date after target_date
+            item_date = effective_dt.strftime("%Y-%m-%d")
+            if item_date > self.target_date:
+                return False
+            return item_date == self.target_date
+
         return True
 
 

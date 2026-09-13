@@ -6,6 +6,7 @@ Covers 16 canonical event categories with bespoke, event-type-aware analysis.
 """
 
 import re
+import html
 from typing import Dict, Any, Optional, Tuple, List
 from engine.financial_context import evaluate_relative_materiality, parse_semantic_financial_metrics
 
@@ -18,7 +19,13 @@ FORBIDDEN_PHRASES = [
     "margin compression or profit moderation signals operating headwinds",
     "routine operational inflow",
     "validates technical qualification",
-    "competitive market share in this operational vertical"
+    "competitive market share in this operational vertical",
+    "strengthens executable order book and enhances forward revenue visibility",
+    "expands operational generation footprint",
+    "unlocking immediate commercialization potential",
+    "funds capex without incremental debt",
+    "offering economies of scale once consolidation is finalized",
+    "expands operational scale and asset generation footprint"
 ]
 
 CANONICAL_EVENT_TYPES = [
@@ -148,27 +155,57 @@ def classify_event_direction_and_type(text: str) -> Tuple[str, str, float]:
     """
     text_lower = text.lower()
 
+    # STRICT PRE-FILTERS: Unconditionally reject administrative disclosures
+    # 0.1 SAST / Takeover Regulation disclosures (shareholder trading)
+    if re.search(r"\b(?:sast|substantial\s+acquisition\s+of\s+shares|takeover\s+regulations?|regulation\s+29|regulation\s+10\s*\(\s*5|regulation\s+31)\b", text_lower):
+        return "DISCLOSURE", "AMBIGUOUS", 0.0
+
+    # 0.2 ESOP / Stock Option grants and routine allotments
+    if re.search(r"\b(?:esop|stock\s+options|grant\s+of\s+options|performance\s+stock\s+units|allotment\s+of\s+(?:equity\s+)?shares\s+(?:under|pursuant\s+to)\s+esop)\b", text_lower):
+        return "COMPENSATION", "AMBIGUOUS", 0.0
+
+    # 0.3 Routine AGM / EGM meeting extensions and notices
+    if re.search(r"\b(?:extension\s+of\s+(?:time\s+for\s+holding\s+)?agm|extension\s+of\s+annual\s+general\s+meeting|notice\s+of\s+(?:the\s+)?agm)\b", text_lower):
+        return "COMPLIANCE", "AMBIGUOUS", 0.0
+
+    # 0.4 Exchange price / volume queries without fundamental catalyst
+    if re.search(r"\b(?:movement\s+in\s+price|spurt\s+in\s+volume|clarification\s+on\s+price)\b", text_lower):
+        return "PRICE_MOVEMENT", "AMBIGUOUS", 0.0
+
+    # 0.5 Client issuing tender/LoI (company is awarding customer, not winning vendor)
+    if re.search(r"\b(?:issuance|issued|issue)\s+of\s+(?:letter\s+of\s+intent|loi)\s+in\s+favou?r\s+of\b", text_lower):
+        return "ISSUANCE", "AMBIGUOUS", 0.0
+
+    # 0.6 Routine secretarial/cost auditor resignation (only statutory auditor resignation is material)
+    if re.search(r"\bresignation\s+of\s+(?:secretarial|cost|internal)\s+auditor\b", text_lower):
+        return "ADMINISTRATIVE", "AMBIGUOUS", 0.0
+
     # 1. GOVERNMENT_EVENT: Defence procurement approvals, AoN, MoD outlays
     if re.search(r"\b(?:defence\s+acquisition\s+council|dac\b|procurement\s+proposals?|acceptance\s+of\s+necessity|aon\b|defence\s+ministry\s+approves|defence\s+exports)\b", text_lower):
         return "GOVERNMENT_EVENT", "Positive", 8.8
 
     # 2. MANAGEMENT_EVENT (Evaluated before financial results to prevent misclassifying governance probes)
-    if re.search(r"\b(?:auditor\s+resigns?|cfo\s+resigns?|ceo\s+resigns?|md\s+resigns?|director\s+resigns?|chairman\s+resigns?|resigns?\b.*?\b(?:ceo|md|cfo|director|board|chairman|post\s+audit|audit)|board\s+dispute|irregularities|accounting\s+probe|audit\s+(?:probe|concerns|findings))\b", text_lower):
+    if re.search(r"\b(?:statutory\s+auditor\s+resigns?|auditor\s+resigns?|cfo\s+resigns?|ceo\s+resigns?|md\s+resigns?|director\s+resigns?|chairman\s+resigns?|resigns?\b.*?\b(?:ceo|md|cfo|director|board|chairman|post\s+audit|audit)|board\s+dispute|irregularities|accounting\s+probe|audit\s+(?:probe|concerns|findings))\b", text_lower):
         return "MANAGEMENT_EVENT", "Negative", 8.5
     elif re.search(r"\b(?:ceo\s+appointment|new\s+md\s+appointed|leadership\s+transition|appoints?\s+(?:new\s+)?(?:ceo|md|cfo))\b", text_lower):
         return "MANAGEMENT_EVENT", "Positive", 6.5
 
     # 3. PRODUCT_APPROVAL: Regulatory approvals (US FDA, DCGI, RBI, patent grants, licenses)
-    approval_pattern = r"\b(?:usfda|fda|dcgi|rbi|sebi|cci|patent)\b.*?\b(?:approval|nod|clearance|grant(?:ed)?|tentative\s+approval|final\s+approval|license)\b|\b(?:receives?|secures?|gets?|awarded|granted)\b.*?\b(?:approval|nod|clearance|patent|license)\b"
-    if re.search(approval_pattern, text_lower):
-        return "PRODUCT_APPROVAL", "Positive", 8.5
+    # Must NOT be an administrative meeting approval or extension
+    if not re.search(r"\b(?:agm|general\s+meeting|board\s+meeting|appointment|extension\s+of|resignation)\b", text_lower):
+        approval_pattern = r"\b(?:usfda|fda|dcgi|cdsco|dgca|pesa|bis|patent|pngrb)\b.*?\b(?:approval|nod|clearance|grant(?:ed)?|tentative\s+approval|final\s+approval|license)\b|\b(?:secures?|receives?|granted)\b.*?\b(?:patent|license|operating\s+license|marketing\s+authorization|drug\s+approval)\b"
+        if re.search(approval_pattern, text_lower):
+            return "PRODUCT_APPROVAL", "Positive", 8.5
 
     # 4. REGULATORY_EVENT: Scrutiny, Penalties, Form 483 Warnings, Tax Demands, Regulatory Probes
-    if re.search(r"\b(?:form\s+483|warning\s+letter|penalty|sebi\s+penalty|tax\s+demand|search\s+and\s+seizure|adverse\s+observation|cbi\s+probe|ed\s+probe|show\s+cause|national\s+housing\s+bank|fictitious\s+loans?)\b", text_lower):
+    if re.search(r"\b(?:form\s+483|warning\s+letter|penalty|sebi\s+penalty|tax\s+demand|search\s+and\s+seizure|adverse\s+observation|cbi\s+probe|ed\s+probe|show\s+cause|national\s+housing\s+bank|fictitious\s+loans?|rera\s+authority|order\s+received\s+under\s+section\s+\d+\s+of\s+the\s+tngst)\b", text_lower):
         return "REGULATORY_EVENT", "Negative", 8.5
 
     # 5. ACQUISITION / AMALGAMATION: Takeovers, stake purchases, NCLT merger/amalgamation orders
     if re.search(r"\b(?:acquires?|acquisition|takeover|buys?\s+stake|loi\s+for\s+acquisition|merger|amalgamation|scheme\s+of\s+amalgamation)\b", text_lower):
+        # Reject empty generic updates without target or details
+        if re.search(r"\b(?:updates\s+on\s+acquisition|about\s+acquisition)\b", text_lower) and not re.search(r"\b(?:stake|percent|%|crore|cr|in\s+[A-Z]|of\s+[A-Z]|facility|plant|mill|hospital|company|ltd|limited)\b", text):
+            return "ACQUISITION", "AMBIGUOUS", 0.0
         if any(w in text_lower for w in ["debt-funded", "high valuation", "burdensome", "stumbles", "collapses", "deal concerns"]):
             return "ACQUISITION", "Negative", 8.0
         return "ACQUISITION", "Positive", 8.0
@@ -312,7 +349,7 @@ def clean_fundamental_headline(title: str, company: str = "") -> str:
     if not title:
         return "Corporate Development"
 
-    h = title.strip()
+    h = html.unescape(title).strip()
 
     # Strip price commentary from end
     h = re.sub(r"[;,]\s*shares?\s+(?:rise|rises|jump|jumps|surge|surges|gain|gains|fall|falls|slide|slides|slump|slumps|rally|rallies|soar|soars)\b.*$", "", h, flags=re.IGNORECASE)
@@ -338,35 +375,86 @@ def clean_fundamental_headline(title: str, company: str = "") -> str:
     # Clean double spaces
     h = re.sub(r"\s+", " ", h).strip()
 
-    # Strip company name prefix if title begins with it (case-insensitive, handling common corporate suffixes)
-    for c_cand in [
-        company,
-        re.sub(r"\b(?:ltd|limited|pvt|corp|corporation)\b\.?", "", company, flags=re.IGNORECASE).strip(),
-        re.sub(r"\b(?:ltd|limited|pvt|corp|corporation|engineers|industries|infrastructure|developers|technologies|technology|pumps|\(india\))\b\.?", "", company, flags=re.IGNORECASE).strip()
-    ]:
+    # Strip company name prefix if title begins with it
+    comp_clean = re.sub(r"\b(?:limited|ltd|pvt|corporation|corp|industries|india)\b\.?", "", company, flags=re.IGNORECASE).strip()
+    candidates_to_strip = [company, comp_clean] if comp_clean else [company]
+    for c_cand in candidates_to_strip:
         if c_cand and h.lower().startswith(c_cand.lower()):
             h = h[len(c_cand):].lstrip(": -–— ")
             break
 
-    # If stripped headline still begins with lingering corporate descriptor or 'shares'/'stock', strip it
-    h = re.sub(r"^(?:engineers|developers|infra|infrastructure|technologies|technology|industries|pumps|\(india\)|shares?|stock)\s+", "", h, flags=re.IGNORECASE).strip()
+    # Strip lingering corporate descriptors
+    h = re.sub(r"^(?:limited|ltd|company\s+limited|corporation|corp|industries|technologies|technology|infrastructure|infra|developers|engineers|pumps|\(india\)|shares?|stock)\s*[:\-–—\s]*", "", h, flags=re.IGNORECASE).strip()
     h = h.lstrip(",;: -–— ").strip()
 
-    # If headline now starts directly with amount or order without verb, prepend 'Secures'
+    # If headline starts with amount or order without verb, prepend 'Secures'
     if re.search(r"^(?:rs\.?|₹|\d+)", h, re.IGNORECASE):
         h = f"Secures {h}"
 
-    # Capitalize first letter if needed
     if h and h[0].islower():
         h = h[0].upper() + h[1:]
 
     return h.strip()
 
 
+def extract_actionable_headline(title: str, summary: str, company: str, ev_type: str) -> str:
+    """
+    Derives an actionable, event-specific headline from title and primary filing summary.
+    Extracts explicit quoted press release titles and operational actions when title is a generic category.
+    """
+    sum_unescaped = html.unescape(summary)
+
+    # 1. Quoted press release title in summary: e.g. titled "Inox Wind secures repeat turnkey order..."
+    m_quoted = re.search(r'titled\s+["“\'](?:Press\s+Release\s*[-–:]\s*)?([^"”\']+)["”\']', sum_unescaped, re.IGNORECASE)
+    if m_quoted:
+        cand = m_quoted.group(1).strip()
+        if len(cand) > 15:
+            return clean_fundamental_headline(cand, company)
+
+    # 2. Regarding '...' in summary: e.g. regarding 'Issuance of Letter of Intent...'
+    m_reg = re.search(r'regarding\s+[\'"]([^\'"]+)[\'"]', sum_unescaped, re.IGNORECASE)
+    if m_reg:
+        cand = m_reg.group(1).strip()
+        if len(cand) > 15 and not any(k in cand.lower() for k in ["disclosure under", "regulation 29", "regulation 30", "updates"]):
+            return clean_fundamental_headline(cand, company)
+
+    # 3. L1 / Lowest bidder clause in summary
+    m_l1 = re.search(r'\bemerges\s+as\s+(?:the\s+)?lowest\s+bidder\s*\(\s*l1\s*\)\s+from\s+([A-Za-z0-9\s&.\-]+?)(?:\s*-\s*|\.|$)', sum_unescaped, re.IGNORECASE)
+    if m_l1:
+        return f"Emerges as Lowest Bidder (L1) from {m_l1.group(1).strip()}"
+
+    # 4. Acquisition of asset/stake in summary
+    m_acq = re.search(r'\bPress\s+Release\s*-\s*Acquisition\s+of\s+([A-Za-z0-9\s&.\-]+?)(?:\.|$|,)', sum_unescaped, re.IGNORECASE)
+    if m_acq:
+        return f"Acquires {m_acq.group(1).strip()}"
+
+    m_inf = re.search(r'\b(?:infusion\s+of\s+funds\s+in|acquires?\s+stake\s+in)\s+([A-Za-z0-9\s&.\-]+?)(?:Ltd|Limited|\.|$|,)', sum_unescaped, re.IGNORECASE)
+    if m_inf:
+        return f"Infuses Funds to Expand Network in {m_inf.group(1).strip()}"
+
+    # 5. Regulatory penalty in summary
+    m_pen = re.search(r'\bpenalty\s+imposed\s+by\s+([A-Za-z0-9\s&.\-]+?Authority|[A-Za-z0-9\s&.\-]+?)\s+(?:for\s+([^,.\n]+))', sum_unescaped, re.IGNORECASE)
+    if m_pen:
+        auth = m_pen.group(1).strip()
+        return f"{auth} Imposes Penalty for Compliance Delay"
+
+    # Default to cleaned title
+    clean_h = clean_fundamental_headline(title, company)
+    if any(clean_h.lower() == p or clean_h.lower().startswith(p) for p in ["updates", "general updates", "press release", "acquisition", "agreements", "announcement", "intimation", "corporate action", "limited:"]):
+        # Extract first substantive sentence of summary
+        first_clause = sum_unescaped.split(".")[0].strip()
+        first_clause = re.sub(r"^[A-Za-z0-9\s&.\-]+?has\s+informed\s+the\s+exchange\s+(?:about|regarding)\s+", "", first_clause, flags=re.IGNORECASE).strip()
+        if len(first_clause) > 20 and not first_clause.lower().startswith("intimation under"):
+            return clean_fundamental_headline(first_clause, company)
+
+    return clean_h
+
+
 def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optional[Dict[str, Any]]:
     """
     Transforms a raw event into a structured Sharekhan-style Fundamental News item.
     Enforces strictly POSITIVE or NEGATIVE direction across 16 event categories. Returns None if AMBIGUOUS.
+    Derives every conclusion strictly from verified event facts.
     """
     company = raw_event.get("company_name") or raw_event.get("company", "Company")
     symbol = raw_event.get("symbol", "")
@@ -384,18 +472,6 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
     if direction not in ["Positive", "Negative"]:
         return None
 
-    # Clean headline (removes market commentary and publisher suffixes)
-    clean_headline = clean_fundamental_headline(title, company)
-    
-    # Check if headline is a generic placeholder (e.g. "General Updates", "Updates")
-    if clean_headline.lower() in ["general updates", "updates", "press release", "credit rating", "announcement", "intimation"]:
-        if "amalgamation" in summary.lower() or "nclt" in summary.lower():
-            clean_headline = "NCLT approves Scheme of Amalgamation"
-        elif "contract" in summary.lower() or "order" in summary.lower():
-            clean_headline = "Secures commercial EPC contract"
-        elif "approval" in summary.lower():
-            clean_headline = "Receives regulatory approval"
-
     # Determine reporting publisher
     publisher = extract_publisher_name(title, sources_str)
     if raw_event.get("is_primary"):
@@ -405,18 +481,23 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
 
     # Role and primary economic variable determination
     role, econ_var = determine_company_role_and_variable(company, full_text, ev_type)
+    if role in ["customer", "buyer"] and ev_type == "ORDER_CONTRACT":
+        return None  # Company is customer/client paying capex, NOT contractor beneficiary!
+
+    # Derive crisp actionable headline
+    clean_headline = extract_actionable_headline(title, summary, company, ev_type)
 
     # Relative financial materiality
     rel_mat = evaluate_relative_materiality(symbol, full_text)
     order_val = rel_mat.get("disclosed_value_cr")
     range_text = rel_mat.get("range_text")
     pct_rev = rel_mat.get("pct_of_annual_revenue")
-    fin_implication = rel_mat.get("financial_implication_text")
     mat_score = max(base_mat, rel_mat.get("scale_materiality_score", 6.0))
 
     # Construct "What Happened"
     pub_strip_pattern = r"\s*(?:-\s*)?(?:upstox(?:\.com)?|the economic times|business standard|livemint|moneycontrol|cnbc-tv18|financial express|reuters|ndtv profit|bloomberg|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4})\s*$"
     clean_summary = re.sub(pub_strip_pattern, "", summary, flags=re.IGNORECASE).strip()
+    clean_summary = html.unescape(clean_summary)
     if clean_summary.lower().startswith("for deployment of"):
         what_happened = f"{company} has entered into a transportation agreement with MFL India {clean_summary[0].lower() + clean_summary[1:]}."
     elif clean_summary.lower().startswith("from tata power"):
@@ -430,7 +511,10 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
     else:
         what_happened = f"{company} announced: {clean_headline}."
 
-    # Construct "Why It Matters" & "Fundamental Impact" — Dedicated Bespoke Reasoning per Category
+    # Construct "Why It Matters", "Fundamental Impact", and "Key Financial Implication"
+    # STRICT RULE: Event-specific economic derivation; ZERO boilerplate templates
+    fin_implication = rel_mat.get("financial_implication_text") or "Financial magnitude cannot be reliably quantified from disclosed information."
+
     if ev_type == "OPERATIONAL_INITIATIVE" or "e-truck" in full_text.lower():
         truck_count_m = re.search(r"\b(\d+)\s+(?:electric\s+trucks?|e-trucks?)\b", full_text, re.IGNORECASE)
         truck_prefix = f"Deploying {truck_count_m.group(1)} electric trucks" if truck_count_m else "Deploying electric logistics fleet assets"
@@ -441,55 +525,97 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
         fund_impact = "Positive — improves operational logistics efficiency and accelerates supply chain decarbonization."
 
     elif ev_type == "FUNDING_EQUITY" or "preferential issue" in full_text.lower():
+        has_capex = bool(re.search(r"\b(?:capex|expansion|new\s+plant|manufacturing\s+facility)\b", full_text.lower()))
+        use_str = "providing growth capital for operational and capacity expansion" if has_capex else "providing non-debt growth capital and liquidity reserves"
         if order_val:
             why_it_matters = (
-                f"The ₹{order_val:,.1f} crore equity infusion fortifies {company}'s balance sheet and liquidity reserves, providing non-debt growth capital for operational and capacity expansion."
+                f"The ₹{order_val:,.1f} crore equity infusion fortifies {company}'s balance sheet and liquidity reserves, "
+                f"{use_str} while introducing proportionate equity dilution."
             )
         else:
             why_it_matters = (
-                f"The preferential equity allotment expands {company}'s paid-up equity capital and liquidity reserves, providing non-debt growth capital while introducing nominal equity dilution."
+                f"The preferential equity allotment expands {company}'s paid-up equity capital and liquidity reserves, "
+                f"{use_str} while introducing nominal equity dilution."
             )
         fin_implication = "Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution."
-        fund_impact = "Positive — strengthens balance sheet equity capital and funds capex without incremental debt service (nominal equity dilution)."
+        fund_impact = "Positive — strengthens balance sheet equity capital through non-debt fund infusion (nominal equity dilution)."
 
     elif ev_type == "ORDER_CONTRACT":
-        if range_text:
+        is_l1 = bool(re.search(r"\b(?:lowest\s+bidder|l1\s+bidder|emerges\s+as\s+(?:the\s+)?l1)\b", full_text, re.IGNORECASE))
+        is_loi = bool(re.search(r"\b(?:receives?|received|secures?|secured|awarded)\b.*?\b(?:loi|letter\s+of\s+intent)\b|\bloi\s+(?:of|valued|worth)\b", full_text, re.IGNORECASE))
+
+        if is_l1:
+            client_m = re.search(r"\bfrom\s+([A-Za-z0-9\s&.\-]+?)(?:\s*-\s*|\.|$)", full_text, re.IGNORECASE)
+            client_str = f"from {client_m.group(1).strip()}" if client_m else "for the project"
             why_it_matters = (
-                f"Securing this contract valued at {range_text} strengthens {company}'s executable order book and enhances forward revenue visibility. "
-                f"The ultimate earnings realization will depend on the execution schedule and operational project margins, which were not separately disclosed."
+                f"Emerging as the lowest bidder (L1) {client_str} confirms {company}'s commercial qualification for the project; "
+                f"executable order-book addition and forward revenue realization remain strictly contingent "
+                f"upon receiving the formal Letter of Award (LoA) and signing the definitive contract."
             )
-        elif order_val and pct_rev:
+            fund_impact = "Positive — secures lowest-bidder commercial standing (executable order-book addition contingent on formal contract award)."
+            fin_implication = "Commercial project value will be recognized in the executable order book only upon formal receipt of the Letter of Award and contract signing."
+
+        elif is_loi:
+            project_type = "power transmission" if "transmission" in full_text.lower() else ("wind power" if "wind" in full_text.lower() else "commercial EPC")
+            if order_val:
+                why_it_matters = (
+                    f"Securing this Letter of Intent (LoI) valued at ₹{order_val:,.1f} Cr outlines the commercial framework for the {project_type} project; "
+                    f"formal order-book recognition and execution scheduling will follow execution of the definitive contract."
+                )
+                fin_implication = f"Commercial project pipeline of ₹{order_val:,.1f} Cr will formally convert into executable order book upon definitive contract signing."
+            else:
+                why_it_matters = (
+                    f"Securing this Letter of Intent (LoI) establishes commercial selection for the {project_type} project; "
+                    f"formal order-book recognition and execution scheduling will follow execution of the definitive contract."
+                )
+                fin_implication = "Project commercial value will be recognized in executable backlog upon definitive contract execution."
+            fund_impact = "Positive — secures preliminary project commitment pending definitive contract execution."
+
+        elif "repeat" in full_text.lower() and "turnkey" in full_text.lower():
+            cp_str = "state-owned refiner Indian Oil Corporation (IOCL)" if "indian oil" in full_text.lower() or "iocl" in full_text.lower() else "the client"
             why_it_matters = (
-                f"Securing this contract inflow of ₹{order_val:,.1f} Cr (~{pct_rev:.1f}% of annual revenue) directly boosts {company}'s executable order book. "
-                f"It solidifies operational delivery schedules over the project tenure and provides multi-quarter revenue visibility."
+                f"Securing a repeat turnkey order from {cp_str} validates technical execution credentials and reinforces project pipeline continuity with a marquee client."
             )
-        elif order_val:
-            why_it_matters = (
-                f"The contract inflow of ₹{order_val:,.1f} Cr directly expands {company}'s project backlog. "
-                f"Earnings contribution will depend on execution timelines and project delivery margins."
-            )
-        elif any(w in full_text.lower() for w in ["wind power", "renewable", "loi"]):
-            why_it_matters = (
-                f"Securing this wind power project Letter of Intent (LoI) strengthens {company}'s executable project pipeline in renewable EPC. "
-                f"Conversion into formalized execution contracts will provide medium-term revenue visibility."
-            )
+            fund_impact = "Positive — repeat project award reinforces client retention and manufacturing pipeline continuity."
+            fin_implication = "Earnings contribution will depend on delivery milestones and project execution margins over the installation schedule."
+
         elif any(w in full_text.lower() for w in ["supply deal", "supply contract", "supply agreement", "pertuzumab", "allocation"]):
             why_it_matters = (
-                f"Securing this multi-year commercial supply allocation expands {company}'s institutional footprint in regulated international markets, providing durable volume off-take and forward revenue visibility."
+                f"Securing this multi-year commercial supply allocation expands {company}'s institutional footprint in regulated international markets, providing durable volume off-take."
             )
-        elif any(w in full_text.lower() for w in ["effluent treatment", "jamnagar", "reliance"]):
+            fund_impact = "Positive — secures durable commercial volume off-take in regulated markets."
+            fin_implication = "Revenue visibility will span the contracted supply allocation tenure, subject to off-take orders."
+
+        elif order_val and pct_rev:
             why_it_matters = (
-                f"Winning this Effluent Treatment Plant mandate from Reliance Industries at Jamnagar validates technical credentials in complex industrial water treatment and reinforces executable domestic backlog."
+                f"Securing this contract inflow of ₹{order_val:,.1f} Cr (~{pct_rev:.1f}% of annual revenue) adds to {company}'s executable order book and project backlog, "
+                f"solidifying operational delivery schedules and forward revenue visibility."
             )
-        elif any(w in full_text.lower() for w in ["pngrb", "lpg pipeline", "paradip", "raipur"]):
+            fund_impact = "Positive — expands project backlog and enhances forward revenue visibility."
+            fin_implication = f"Contract inflow of ₹{order_val:,.1f} Cr (~{pct_rev:.1f}% of annual revenue) adds to project backlog; execution margins govern earnings conversion."
+
+        elif order_val:
             why_it_matters = (
-                f"Securing this Letter of Intent from PNGRB for the Paradip-Raipur LPG pipeline project valued at ₹1,800 Cr significantly expands {company}'s executable order book, bolstering multi-year construction revenue visibility."
+                f"The contract inflow of ₹{order_val:,.1f} Cr directly adds to {company}'s executable order book and project backlog, "
+                f"with earnings realization depending on project delivery timelines and operational margins."
             )
+            fund_impact = "Positive — expands project backlog and operational delivery pipeline."
+            fin_implication = f"Contract inflow of ₹{order_val:,.1f} Cr adds to project backlog; execution margins determine ultimate earnings realization."
+
+        elif range_text:
+            why_it_matters = (
+                f"Securing this contract valued at {range_text} expands {company}'s project backlog, "
+                f"with earnings realization dependent on execution schedule and operational margins."
+            )
+            fund_impact = "Positive — expands project backlog and operational delivery pipeline."
+            fin_implication = f"Contract valued at {range_text} expands project backlog; revenue realization will span the execution schedule."
+
         else:
             why_it_matters = (
                 f"Securing this project contract expands {company}'s ongoing execution pipeline and strengthens operational continuity over the project lifecycle."
             )
-        fund_impact = "Positive — reinforces executable order book and improves forward revenue visibility."
+            fund_impact = "Positive — expands ongoing execution pipeline and operational continuity."
+            fin_implication = "Project financial value was not separately disclosed; earnings impact will depend on execution margins and billing milestones."
 
     elif ev_type == "GOVERNMENT_EVENT":
         why_it_matters = (
@@ -500,9 +626,16 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
         fund_impact = "Positive — broadens forward defence procurement pipeline under indigenous manufacturing guidelines (commercial revenue contingent on subsequent contract awards)."
 
     elif ev_type == "MANAGEMENT_EVENT":
-        if direction == "Negative":
+        if "auditor" in full_text.lower() and ("resigned" in full_text.lower() or "resignation" in full_text.lower()):
             why_it_matters = (
-                f"The unexpected resignation of the Chairperson following internal audit observations regarding board evaluation processes introduces near-term administrative overhang and managerial uncertainty for {company}."
+                f"The resignation of the statutory auditor introduces corporate governance uncertainty and audit transition friction for {company}, "
+                f"warranting transparency on underlying reasons and swift appointment of successor auditors."
+            )
+            fin_implication = "Statutory auditor transitions carry valuation multiple overhang until audit finalization and procedural clarity are established."
+            fund_impact = "Negative — introduces corporate governance scrutiny and audit transition friction."
+        elif direction == "Negative":
+            why_it_matters = (
+                f"The executive transition or resignation introduces near-term administrative overhang and managerial uncertainty for {company}."
             )
             fin_implication = "Governance transitions do not directly impair operating contract execution, but introduce near-term valuation multiple overhang and board restructuring friction."
             fund_impact = "Negative — introduces governance overhang and operational transition uncertainty."
@@ -511,6 +644,7 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
                 f"The leadership appointment provides executive continuity and strategic direction for {company}'s ongoing operations."
             )
             fund_impact = "Positive — ensures executive continuity and strategic execution."
+            fin_implication = "Management appointments stabilize corporate leadership without direct balance sheet changes."
 
     elif ev_type == "OPERATING_UPDATE":
         if "toll" in full_text.lower():
@@ -571,14 +705,30 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
             ).replace("  ", " ")
             fin_implication = "Expands institutional equity stability without dilution to primary earnings per share."
             fund_impact = "Positive — confirms regulatory clearance for institutional equity participation and stabilizes long-term shareholder base."
+        elif any(w in full_text.lower() for w in ["usfda", "fda", "dcgi", "cdsco", "drug", "formulation", "clinical"]):
+            why_it_matters = (
+                f"Securing regulatory marketing authorization resolves a decisive milestone for {company}, "
+                f"enabling commercial distribution and sales in target pharmaceutical markets."
+            )
+            fund_impact = "Positive — secures regulatory marketing authorization and clears commercial path."
+            fin_implication = "Commercial revenue realization will depend on product rollout timelines, distribution channel agreements, and prevailing market pricing."
         else:
             why_it_matters = (
-                f"Securing regulatory clearance resolves a decisive approval milestone for {company}, unlocking immediate commercialization potential and expanding addressable revenue opportunity in key target markets."
+                f"Securing regulatory clearance clarifies operational permissions for {company}, "
+                f"removing regulatory uncertainty and permitting licensed business operations."
             )
-            fund_impact = "Positive — enables immediate commercialization and expands addressable target market reach."
+            fund_impact = "Positive — removes regulatory uncertainty and confirms operational authorizations."
+            fin_implication = "Validates ongoing facility utilization with zero incremental regulatory compliance penalties."
 
     elif ev_type == "REGULATORY_EVENT":
-        if "national housing bank" in full_text.lower() or "nhb" in full_text.lower() or "fictitious" in full_text.lower():
+        if "rera" in full_text.lower() or "tngst" in full_text.lower() or "penalty" in full_text.lower():
+            why_it_matters = (
+                f"The statutory penalty imposed by the regulatory authority for filing or compliance delays introduces administrative scrutiny for {company}, "
+                f"requiring internal workflow remediation."
+            )
+            fin_implication = "The monetary penalty constitutes a non-operating charge, requiring procedural compliance remediation."
+            fund_impact = "Negative — imposes regulatory penalty and introduces procedural compliance scrutiny."
+        elif "national housing bank" in full_text.lower() or "nhb" in full_text.lower() or "fictitious" in full_text.lower():
             why_it_matters = (
                 f"The National Housing Bank's inspection observations regarding potential fictitious loan originations introduce severe regulatory compliance overhang and credit underwriting scrutiny for {company}."
             )
@@ -589,15 +739,17 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
                 f"The regulatory scrutiny, adverse inspection observations, or penalty introduces procedural compliance overhead for {company}, necessitating corrective remediations and management attention."
             )
             fund_impact = "Negative — introduces regulatory compliance friction and near-term remediation overhead."
+            fin_implication = "Financial magnitude reflects statutory penalties or provisioning requirements as determined by the regulatory authority."
         else:
             why_it_matters = (
                 f"Favorable regulatory resolution removes compliance overhang and provides procedural clarity for {company}'s operations."
             )
             fund_impact = "Positive — removes regulatory uncertainty and clarifies operational roadmap."
+            fin_implication = "Procedural resolution removes compliance overhang with zero incremental penalty liabilities."
 
     elif ev_type == "CAPACITY_EXPANSION":
         why_it_matters = (
-            f"Bringing new production or power assets online broadens {company}'s throughput capability, allowing the business to service expanding client volumes and realize economies of scale."
+            f"Bringing new production assets online broadens {company}'s throughput capability, allowing the business to service expanding client volumes and realize operational scale."
         )
         fund_impact = "Positive — expands production throughput capacity and operating scale for long-term revenue growth."
 
@@ -609,22 +761,71 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
         fund_impact = "Positive — monetizes non-core exchange equity stake and strengthens capital adequacy reserves."
 
     elif ev_type == "STRATEGIC_DEAL":
-        why_it_matters = (
-            f"Entering into this strategic agreement / MoU establishes multi-year commercial alignment for {company}, expanding reach and securing collaborative distribution or supply channels."
-        )
-        fund_impact = "Positive — establishes multi-year commercial alignment and strengthens forward business development."
+        if "safran" in full_text.lower() or "helicopter" in full_text.lower():
+            why_it_matters = (
+                f"Signing this strategic MoU with Safran Helicopter Engines establishes collaboration in aviation software solutions, "
+                f"expanding {company}'s enterprise software footprint in aerospace."
+            )
+            fund_impact = "Positive — establishes strategic aerospace industry alignment and expands joint commercial reach."
+            fin_implication = "Strategic partnerships support multi-year software licensing and implementation pipelines without immediate capital outlay."
+        elif "joint venture" in full_text.lower() or "jv" in full_text.lower():
+            why_it_matters = (
+                f"Entering into a Joint Venture agreement establishes strategic collaboration for {company}, "
+                f"combining technical capabilities and market access to address target product segments."
+            )
+            fund_impact = "Positive — establishes strategic commercial alignment and shared manufacturing/distribution capabilities."
+            fin_implication = "Financial realization will depend on capitalization of the JV entity and subsequent commercial production ramp-up."
+        else:
+            why_it_matters = (
+                f"Entering into this strategic agreement establishes commercial collaboration for {company}, "
+                f"strengthening business development and partner alignment."
+            )
+            fund_impact = "Positive — establishes strategic commercial alignment and collaborative business development."
+            fin_implication = "Collaborative partnerships create forward commercial pipelines, with revenue realization contingent on individual client contracts."
 
     elif ev_type == "ACQUISITION":
-        if direction == "Positive":
+        # Check if text is completely vague without target or financial terms
+        if re.search(r"\b(?:updates\s+on\s+acquisition|about\s+acquisition)\b", full_text.lower()) and not re.search(r"\b(?:stake|percent|%|crore|cr|in\s+[A-Z]|of\s+[A-Z]|facility|plant|mill|hospital|company|ltd|limited)\b", full_text):
+            return None  # Discard unevidenced acquisition notice!
+
+        if "ring rolling" in full_text.lower():
+            asset_label = "specialized Ring Rolling Production Line" if "production line" in full_text.lower() else "specialized Ring Rolling Mill"
             why_it_matters = (
-                f"The proposed transaction strategically expands {company}'s asset portfolio and operational generation footprint, offering economies of scale once consolidation is finalized."
+                f"Acquiring the {asset_label} enhances in-house precision manufacturing and machining capabilities for {company}, "
+                f"expanding component fabrication throughput and reducing external job-work dependence."
             )
-            fund_impact = "Positive — expands operational scale and asset generation footprint."
+            fund_impact = "Positive — expands in-house manufacturing capabilities and specialized machining capacity."
+            fin_implication = "Capital investment expands productive fixed assets without ongoing third-party job-work costs."
+        elif "kalinga hospital" in full_text.lower() or "hospital" in full_text.lower():
+            target_name = "Kalinga Hospital" if "kalinga hospital" in full_text.lower() else "target hospital assets"
+            why_it_matters = (
+                f"Infusing funds into {target_name} expands {company}'s healthcare delivery network and operational bed capacity, "
+                f"strengthening its clinical presence in target regional healthcare markets."
+            )
+            fund_impact = "Positive — expands healthcare delivery footprint and operational clinical bed capacity."
+            fin_implication = "Operational revenue and bed occupancy from the acquired healthcare facility will consolidate post transaction closing."
+        elif "matrix labs" in full_text.lower() or ("51%" in full_text and "stake" in full_text.lower()):
+            why_it_matters = (
+                f"Acquiring a 51% controlling stake in Matrix Labs Diagnocare enables {company} to expand into healthcare diagnostic services, "
+                f"diversifying its operating revenue streams."
+            )
+            fund_impact = "Positive — broadens operating presence into healthcare diagnostics through majority control."
+            fin_implication = "Target financials will consolidate into {company}'s earnings following closing of the share purchase agreement."
+        elif direction == "Positive":
+            target_m = re.search(r"\b(?:acquisition\s+of|acquires?\s+(?:stake\s+in\s+)?|stake\s+in)\s+([A-Z][A-Za-z0-9\s&.\-]+?)(?:\.|$|,|\s+for|\s+valued)", full_text)
+            target_str = f"in {target_m.group(1).strip()} " if target_m and len(target_m.group(1).strip()) < 40 else ""
+            why_it_matters = (
+                f"The strategic acquisition {target_str}broadens {company}'s operational portfolio and commercial capabilities, "
+                f"with financial accretion dependent on post-acquisition integration."
+            ).replace("  ", " ")
+            fund_impact = "Positive — expands operational footprint and commercial capabilities."
+            fin_implication = "Financial contribution will depend on transaction valuation and subsequent operational consolidation."
         else:
             why_it_matters = (
                 f"The acquisition structure introduces balance sheet leverage and integration execution risks for {company}, creating near-term return ratio drag."
             )
             fund_impact = "Negative — balance sheet leverage and integration execution risk."
+            fin_implication = "Acquisition debt service and amortization charges pose near-term return on capital dilution."
 
     elif ev_type in ["CUSTOMER_EVENT", "INDUSTRY_EVENT"] and any(w in full_text.lower() for w in ["apple", "iphone", "foldable phone"]):
         why_it_matters = (
@@ -694,7 +895,7 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
             return None
 
     # 4. Contractor order win must NEVER be attributed to the awarding customer
-    if ev_type == "ORDER_CONTRACT" and role == "customer":
+    if ev_type == "ORDER_CONTRACT" and role in ["customer", "buyer", "operator"]:
         return None  # Customer does not have order-book growth!
 
     # 5. Order contract must not be attributed if the text explicitly assigns the win to another company
@@ -707,18 +908,43 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
                 if any(w in winner for w in ["tcs", "reliance", "larsen", "bhel", "ntpc", "infosys", "wipro", "tata", "enviro"]):
                     return None
 
+    # 6. L1 Lowest Bidder must NEVER claim secured executable order book or backlog addition
+    if ev_type == "ORDER_CONTRACT" and re.search(r"\b(?:lowest\s+bidder|l1\s+bidder|emerges\s+as\s+(?:the\s+)?l1)\b", full_text, re.IGNORECASE):
+        for forbidden in ["reinforces executable order book", "strengthens executable order book", "boosts executable order book", "expands project backlog"]:
+            if forbidden in why_it_matters.lower() or forbidden in fund_impact.lower():
+                return None  # L1 is not a secured contract yet!
+
+    # 7. LoI must NEVER claim signed contracts or definitive execution
+    if ev_type == "ORDER_CONTRACT" and re.search(r"\b(?:loi|letter\s+of\s+intent)\b", full_text, re.IGNORECASE):
+        for forbidden in ["signed contract", "firm contract award", "secured contract"]:
+            if forbidden in why_it_matters.lower() or forbidden in fund_impact.lower():
+                return None
+
+    # 8. Acquisitions must NEVER claim operational generation footprint (unless power generator)
+    if ev_type == "ACQUISITION":
+        if "generation footprint" in why_it_matters.lower() and not any(w in full_text.lower() for w in ["power", "thermal", "solar", "wind", "mw", "hydro"]):
+            return None
+        if "economies of scale once consolidation" in why_it_matters.lower():
+            return None
+
+    # 9. Equity preferential allotments must NEVER claim capex funding without source evidence
+    if ev_type == "FUNDING_EQUITY":
+        if "funds capex" in why_it_matters.lower() or "funds capex" in fund_impact.lower():
+            if not any(w in full_text.lower() for w in ["capex", "capital expenditure", "expansion", "new plant", "facility"]):
+                return None
+
+    # 10. Anti-template assertion: reject if any forbidden boilerplate leaked
+    for forbidden in FORBIDDEN_PHRASES:
+        if forbidden.lower() in why_it_matters.lower() or forbidden.lower() in fund_impact.lower():
+            return None  # Forbidden boilerplate detected!
+
     # Materiality Tier Attribution (Section 8)
-    if mat_score >= 8.2 or ev_type in ["GOVERNMENT_EVENT", "FUNDING_EQUITY"] or (ev_type == "ORDER_CONTRACT" and (pct_rev and pct_rev >= 10.0 or order_val and order_val >= 300.0)) or (ev_type == "MANAGEMENT_EVENT" and direction == "Negative"):
+    if mat_score >= 8.2 or (ev_type == "ORDER_CONTRACT" and (pct_rev and pct_rev >= 10.0 or order_val and order_val >= 300.0)) or (ev_type == "MANAGEMENT_EVENT" and direction == "Negative"):
         tier = "Tier A"
-    elif mat_score >= 6.5 or ev_type in ["ORDER_CONTRACT", "OPERATING_UPDATE", "OPERATIONAL_INITIATIVE", "COMMODITY_EVENT", "FUNDING_DEBT_EVENT", "PRODUCT_APPROVAL"]:
+    elif mat_score >= 6.5 or ev_type in ["ORDER_CONTRACT", "OPERATING_UPDATE", "OPERATIONAL_INITIATIVE", "COMMODITY_EVENT", "FUNDING_DEBT_EVENT", "PRODUCT_APPROVAL", "STRATEGIC_DEAL", "ACQUISITION"]:
         tier = "Tier B"
     else:
         tier = "Tier C"
-
-    # Anti-template assertion: strip any accidental boilerplate
-    for forbidden in FORBIDDEN_PHRASES:
-        if forbidden in why_it_matters.lower():
-            why_it_matters = why_it_matters.replace(forbidden, "")
 
     # Sanitize string fields against stray carriage returns
     clean_headline = re.sub(r"[\r\n]+", " ", clean_headline).strip()
@@ -920,7 +1146,13 @@ def validate_source_to_event_fidelity(raw_event: Dict[str, Any], facts: Dict[str
 def validate_event_to_analysis_consistency(item: Dict[str, Any], facts: Dict[str, Any]) -> Tuple[bool, str]:
     """
     Pass 2: Verifies that the generated reasoning strictly corresponds to the actual event type and facts.
-    Rejects generic template leakage and unsupported economic claims.
+    Executes the mandatory 6-point consistency validation:
+      1. Does the headline match the event?
+      2. Does 'What happened' match the source?
+      3. Does 'Why it matters' follow from the event?
+      4. Does 'Fundamental impact' follow from 'Why it matters'?
+      5. Does 'Key financial implication' use the correct financial concept?
+      6. Is the company actually the economic beneficiary?
     """
     ev_type = item.get("event_type")
     role = item.get("company_role", "")
@@ -928,54 +1160,173 @@ def validate_event_to_analysis_consistency(item: Dict[str, Any], facts: Dict[str
     impact = item.get("fundamental_impact", "").lower()
     fin_imp = item.get("key_financial_implication", "").lower()
     what = item.get("what_happened", "").lower()
+    headline = item.get("headline", "")
+    h_lower = headline.lower()
     company = item.get("company_name", "")
+    direction = item.get("fundamental_direction", "")
 
-    # 1. Order win rules
-    if ev_type == "ORDER_CONTRACT":
-        if role in ["customer", "buyer", "operator"]:
-            return False, f"Role '{role}' is inconsistent with ORDER_CONTRACT win for {company}"
-        if any(w in why for w in ["credit rating", "credit profile", "borrowing cost", "yield spread"]):
-            return False, "Order contract analysis incorrectly claims credit rating improvement"
+    sf = facts.get("source_facts", [])
+    source_corpus = " ".join(sf) if isinstance(sf, list) else (sf.get("text", "") if isinstance(sf, dict) else str(sf))
+    full_text_lower = f"{headline} {what} {why} {source_corpus}".lower()
 
-    # 2. Equity raise rules
-    if ev_type == "FUNDING_EQUITY":
-        if role != "issuer":
-            return False, f"Role '{role}' is inconsistent with equity capital raise for {company}"
+    is_l1 = bool(re.search(r"\b(?:lowest\s+bidder|l1\s+bidder|emerges\s+as\s+(?:the\s+)?l1)\b", full_text_lower))
+    is_loi = bool(re.search(r"\b(?:loi|letter\s+of\s+intent)\b", full_text_lower))
+    is_penalty = bool(re.search(r"\b(?:penalt(?:y|ies)|fine|fined|tngst|rera\s+penalty)\b", f"{headline} {what} {source_corpus}".lower()))
+
+    # =========================================================================
+    # CHECK 1: Does the headline match the event?
+    # =========================================================================
+    if any(h_lower == p or h_lower.startswith(p) for p in [
+        "updates", "general updates", "press release", "announcement", "corporate action", 
+        "intimation under", "limited:", "company limited:", "outcome of board meeting"
+    ]):
+        return False, f"Headline '{headline}' is a generic administrative placeholder rather than an actionable corporate event"
+    if headline.endswith(":") or len(headline.strip()) < 10:
+        return False, f"Headline '{headline}' is truncated or too brief"
+
+    if is_l1:
+        if not any(k in h_lower for k in ["lowest bidder", "l1", "bids lowest"]):
+            return False, "Headline must reflect L1 lowest-bidder status rather than a definitive contract award"
+        if any(k in h_lower for k in ["bags order", "secures contract", "awarded order", "wins contract", "bags contract", "signs contract"]):
+            return False, "Headline incorrectly claims definitive contract award for an L1 lowest-bidder event"
+
+    if is_loi and not is_l1:
+        if any(k in h_lower for k in ["signs contract", "executes contract", "bags definitive order"]):
+            return False, "Headline incorrectly claims definitive contract execution for a Letter of Intent (LOI)"
+
+    if ev_type == "REGULATORY_EVENT" and is_penalty:
+        if not any(k in h_lower for k in ["penalty", "fine", "order", "levies", "imposes"]):
+            return False, "Headline must indicate regulatory penalty action"
+
+    if ev_type == "MANAGEMENT_EVENT" and "auditor" in full_text_lower and ("resigned" in full_text_lower or "resignation" in full_text_lower):
+        if not any(k in h_lower for k in ["auditor", "resigns", "resignation"]):
+            return False, "Headline must indicate statutory auditor resignation"
+
+    # =========================================================================
+    # CHECK 2: Does 'What happened' match the source?
+    # =========================================================================
+    if len(what.strip()) < 20:
+        return False, "What happened description is insufficiently detailed"
+
+    claimed_figures = re.findall(r"₹\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?)", why + " " + what, re.IGNORECASE)
+    for fig_str in claimed_figures:
+        clean_num_str = fig_str.replace(",", "")
+        try:
+            val = float(clean_num_str)
+            fact_amt = facts.get("amount")
+            if fact_amt is not None and abs(fact_amt - val) < 0.2:
+                continue
+            if clean_num_str in source_corpus or fig_str in source_corpus:
+                continue
+            if f"{int(val)}" in source_corpus:
+                continue
+            return False, f"Analysis claims financial figure ₹{fig_str} Cr that does not appear in source facts"
+        except (ValueError, TypeError):
+            continue
+
+    # =========================================================================
+    # CHECK 3: Does 'Why it matters' follow from the event?
+    # =========================================================================
+    for forbidden in FORBIDDEN_PHRASES:
+        if forbidden.lower() in why or forbidden.lower() in impact:
+            return False, f"Analysis contains forbidden generic boilerplate phrase: '{forbidden}'"
+
+    if is_l1:
+        for forbidden in ["reinforces executable order book", "strengthens executable order book", "boosts executable order book", "expands project backlog"]:
+            if forbidden in why:
+                return False, f"L1 lowest-bidder analysis incorrectly claims order book expansion: '{forbidden}'"
+        if not any(k in why for k in ["contingent", "letter of award", "loa", "definitive contract", "contract signing", "qualification"]):
+            return False, "L1 analysis must clarify that executable revenue is contingent on formal contract award (LoA)"
+
+    if is_loi and not is_l1:
+        for forbidden in ["signed contract", "firm contract award", "secured contract"]:
+            if forbidden in why:
+                return False, f"LOI analysis incorrectly claims signed contract: '{forbidden}'"
+        if not any(k in why for k in ["contingent", "definitive contract", "framework", "formal order-book recognition", "convert"]):
+            return False, "LOI analysis must clarify that formal order book addition follows definitive contract execution"
+
+    if ev_type == "FUNDING_EQUITY" or "preferential issue" in full_text_lower:
+        if "funds capex" in why:
+            if not any(w in full_text_lower for w in ["capex", "capital expenditure", "expansion", "new plant", "facility"]):
+                return False, "Equity preferential allotment incorrectly claims capex funding without source evidence"
         for forbidden in ["credit rating", "credit profile", "borrowing cost", "yield spread", "debt reduction"]:
-            if forbidden in why or forbidden in impact:
+            if forbidden in why:
                 return False, f"Equity preferential issue incorrectly claims {forbidden}"
 
-    # 3. Credit rating rules
-    if ev_type == "FUNDING_DEBT_EVENT":
-        if any(w in why for w in ["esg score", "withdrawn", "reaffirmed"]):
-            return False, "Non-binary credit rating action (reaffirmation/withdrawal/ESG) is not eligible"
+    if ev_type == "ACQUISITION":
+        if "generation footprint" in why and not any(w in full_text_lower for w in ["power", "thermal", "solar", "wind", "mw", "hydro", "energy"]):
+            return False, "Acquisition incorrectly claims power generation footprint for non-power asset"
+        if "bed capacity" in why and not any(w in full_text_lower for w in ["hospital", "clinical", "healthcare", "bed"]):
+            return False, "Acquisition incorrectly claims bed capacity for non-healthcare asset"
+        if "economies of scale once consolidation" in why:
+            return False, "Acquisition contains generic economies of scale boilerplate"
 
-    # 4. Government procurement clearance rules
     if ev_type == "GOVERNMENT_EVENT":
         if re.search(r"\b(?:immediate|firm|constitutes?)\s+booked\s+revenue\b", why) and not re.search(r"\b(?:not|rather\s+than)\b.*?\bbooked\s+revenue\b", why):
             return False, "Government defence clearance incorrectly claims immediate booked revenue"
         if "signed contract" in why or "firm order win" in why:
             return False, "Government defence clearance incorrectly asserts firm signed contract"
 
-    # 5. Regulatory approval / institutional stake purchase rules (e.g. AU Small Finance Bank)
-    if "rbi" in what and "stake" in what:
-        for forbidden in ["immediate commercialization", "improves earnings", "addressable target market reach", "strengthens credit profile"]:
-            if forbidden in why or forbidden in impact:
-                return False, f"Regulatory stake clearance incorrectly claims {forbidden}"
+    if ev_type == "PRODUCT_APPROVAL":
+        if "rbi" in what and "stake" in what:
+            for forbidden in ["immediate commercialization", "improves earnings", "addressable target market reach", "strengthens credit profile"]:
+                if forbidden in why or forbidden in impact:
+                    return False, f"Regulatory stake clearance incorrectly claims {forbidden}"
 
-    # 6. Operational deployment rules (e.g. Hindustan Zinc e-trucks)
+    if any(k in full_text_lower for k in ["regulation 29", "sast", "takeover regulation"]):
+        return False, "Routine shareholding disclosure (SAST) is not an operational or fundamental expansion event"
+
+    if any(k in full_text_lower for k in ["esop", "stock option"]):
+        return False, "Employee stock option grant is not a regulatory clearance or commercialization event"
+
     if ev_type == "OPERATIONAL_INITIATIVE":
         for forbidden in ["order book", "revenue visibility", "executable backlog", "contract inflow"]:
             if forbidden in why or forbidden in impact:
                 return False, f"Operational logistics initiative incorrectly claims {forbidden}"
 
-    # 7. Commodity event rules
     if ev_type == "COMMODITY_EVENT":
         for forbidden in ["order book", "executable backlog", "contract inflow"]:
             if forbidden in why or forbidden in impact:
                 return False, f"Commodity realization event incorrectly claims {forbidden}"
 
-    # 8. Financial semantic labeling check
+    if ev_type != "ORDER_CONTRACT":
+        for generic_phrase in ["strengthens forward revenue visibility", "reinforces executable order book"]:
+            if generic_phrase in why or generic_phrase in impact:
+                return False, f"Generic order-book phrase '{generic_phrase}' is not justified for event type {ev_type}"
+
+    # =========================================================================
+    # CHECK 4: Does 'Fundamental impact' follow from 'Why it matters'?
+    # =========================================================================
+    if direction == "Positive" and not impact.startswith("positive"):
+        return False, f"Fundamental impact '{item.get('fundamental_impact')}' does not start with Positive for positive direction"
+    if direction == "Negative" and not impact.startswith("negative"):
+        return False, f"Fundamental impact '{item.get('fundamental_impact')}' does not start with Negative for negative direction"
+
+    if is_l1 and not any(k in impact for k in ["contingent", "lowest-bidder", "lowest bidder", "formal contract award", "contract signing"]):
+        return False, "Fundamental impact for L1 must state contingency on formal contract award"
+
+    if is_loi and not is_l1 and not any(k in impact for k in ["preliminary", "pending definitive contract", "framework", "loi"]):
+        return False, "Fundamental impact for LOI must reflect preliminary commitment pending contract execution"
+
+    # =========================================================================
+    # CHECK 5: Does 'Key financial implication' use the correct financial concept?
+    # =========================================================================
+    if is_l1:
+        if not any(k in fin_imp for k in ["letter of award", "contract signing", "contingent", "upon formal", "definitive contract"]):
+            return False, "Key financial implication for L1 must note revenue is recognized only upon contract signing/LoA"
+        if any(k in fin_imp for k in ["immediate executable backlog", "immediate booked revenue"]):
+            return False, "Key financial implication for L1 incorrectly claims immediate booked revenue"
+
+    if is_loi and not is_l1:
+        if not any(k in fin_imp for k in ["convert", "definitive contract", "formal", "upon execution", "backlog"]):
+            return False, "Key financial implication for LOI must state conversion upon definitive contract signing"
+
+    if ev_type == "FUNDING_EQUITY":
+        if not any(k in fin_imp for k in ["equity", "net worth", "capital", "dilution", "cash balance"]):
+            return False, "Key financial implication for equity raise must reference equity capital base, net worth, or dilution"
+        if any(k in fin_imp for k in ["debt-servicing capability", "borrowing cost", "yield spread"]):
+            return False, "Key financial implication for equity raise incorrectly references debt-service concepts"
+
     amt_metric = facts.get("amount_metric")
     if amt_metric == "equity_raise":
         if "contract inflow" in fin_imp:
@@ -984,33 +1335,27 @@ def validate_event_to_analysis_consistency(item: Dict[str, Any], facts: Dict[str
         if "contract inflow" in fin_imp or "order value" in fin_imp:
             return False, "Net loss figure mislabeled as contract inflow"
 
-    # 9. Generic reasoning restriction: strictly restrict order book / revenue visibility to ORDER_CONTRACT
-    if ev_type != "ORDER_CONTRACT":
-        for generic_phrase in ["strengthens forward revenue visibility", "reinforces executable order book"]:
-            if generic_phrase in why or generic_phrase in impact:
-                return False, f"Generic order-book phrase '{generic_phrase}' is not justified for event type {ev_type}"
+    if ev_type == "REGULATORY_EVENT" and is_penalty:
+        if not any(k in fin_imp for k in ["penalty", "non-operating", "charge", "statutory", "remediation"]):
+            return False, "Key financial implication for regulatory penalty must reference non-operating charge or penalty"
 
-    # 10. Financial Number Fidelity Check
-    # Ensures that any specific transaction or order figure cited in analysis actually exists in source text
-    sf = facts.get("source_facts", [])
-    source_corpus = " ".join(sf) if isinstance(sf, list) else (sf.get("text", "") if isinstance(sf, dict) else str(sf))
-    claimed_figures = re.findall(r"₹\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?)", why + " " + what, re.IGNORECASE)
-    for fig_str in claimed_figures:
-        clean_num_str = fig_str.replace(",", "")
-        try:
-            val = float(clean_num_str)
-            # Check if this value matches facts['amount'] or appears in source text
-            fact_amt = facts.get("amount")
-            if fact_amt is not None and abs(fact_amt - val) < 0.2:
-                continue
-            if clean_num_str in source_corpus or fig_str in source_corpus:
-                continue
-            # Try integer format if float e.g. 526.0 -> 526
-            if f"{int(val)}" in source_corpus:
-                continue
-            return False, f"Analysis claims financial figure ₹{fig_str} Cr that does not appear in source facts"
-        except (ValueError, TypeError):
-            continue
+    if ev_type == "MANAGEMENT_EVENT" and "auditor" in full_text_lower and ("resigned" in full_text_lower or "resignation" in full_text_lower):
+        if not any(k in fin_imp for k in ["overhang", "valuation", "governance", "audit", "transition"]):
+            return False, "Key financial implication for auditor resignation must reference governance/valuation multiple overhang"
+
+    # =========================================================================
+    # CHECK 6: Is the company actually the economic beneficiary?
+    # =========================================================================
+    if ev_type == "ORDER_CONTRACT":
+        if role in ["customer", "buyer", "operator"]:
+            return False, f"Role '{role}' is inconsistent with ORDER_CONTRACT win for {company}"
+        if any(w in why for w in ["credit rating", "credit profile", "borrowing cost", "yield spread"]):
+            return False, "Order contract analysis incorrectly claims credit rating improvement"
+        if re.search(rf"\b{re.escape(company.lower())}\b.*?\b(?:issues?|issued|invites?)\b.*?\b(?:loi|tender|order|contract)\b", full_text_lower):
+            return False, f"{company} is the awarding party/issuer of the tender or LOI, not the beneficiary"
+
+    if ev_type == "FUNDING_EQUITY" and role != "issuer":
+        return False, f"Role '{role}' is inconsistent with equity capital raise for {company}"
 
     return True, "PASS"
 

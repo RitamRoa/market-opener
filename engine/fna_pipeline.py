@@ -14,8 +14,8 @@ from email.utils import parsedate_to_datetime
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Optional
 
-from engine.nse_bse_client import get_all_exchange_announcements
-from engine.news_collector import collect_market_news
+from engine.nse_bse_client import get_all_exchange_announcements, get_historical_exchange_announcements
+from engine.news_collector import collect_market_news, collect_historical_market_news
 from engine.noise_filter import is_material_fundamental_event
 from engine.entity_mapper import resolve_entity_from_text, validate_event_entity
 from engine.deduplicator import deduplicate_and_cluster_news
@@ -207,148 +207,85 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
     set_current_context(ctx)
 
     all_raw_events = []
+    seen_titles = set()
 
-    if ctx.is_historical:
-        print(f"[INFO] Running in Historical Mode for {report_date_str} (Cutoff: {cutoff_dt.strftime('%H:%M:%S IST')})...")
-        logger.info(f"Historical Mode: target_date={target_date}, cutoff={cutoff_dt.isoformat()}")
+    # Step 1: Direct Source Research for requested date
+    print(f"[INFO] Research date: {iso_date} (Cutoff: {cutoff_dt.strftime('%H:%M:%S IST')})")
+    logger.info(f"FNA Research: research_date={iso_date}, mode={ctx.mode}, cutoff={cutoff_dt.isoformat()}")
 
-        # Strict Historical Rule (Sections 7-10): NEVER fetch live web feeds for a past date
-        # Retrieve archived developments strictly from SQLite news_cache AND fna_events
-        seen_titles = set()
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT title, summary, source, url, published_at, symbol 
-                FROM news_cache
-            """)
-            cached_rows = cursor.fetchall()
+    print(f"[INFO] Querying exchange announcements for {iso_date}...")
+    logger.info(f"Querying exchange announcements for {iso_date}...")
+    raw_announcements = get_all_exchange_announcements(target_date=iso_date)
 
-            cursor.execute("""
-                SELECT headline, what_happened, why_it_matters, sources, event_date, created_at, symbol, company_name
-                FROM fna_events
-            """)
-            event_rows = cursor.fetchall()
+    print(f"[INFO] Querying financial news and regulatory feeds for {iso_date}...")
+    logger.info(f"Querying financial news and regulatory feeds for {iso_date}...")
+    raw_news = collect_market_news(target_date=iso_date)
 
-        for row in cached_rows:
-            pub_str = row["published_at"] or ""
-            dt = parse_datetime_ist(pub_str)
-            if not dt:
-                continue
-            # Strict Cutoff Rule: Event publication time must be on target_date and <= cutoff_dt
-            if ctx.is_eligible(dt):
-                title = row["title"] or ""
-                clean_title = re.sub(r"\s+", " ", title.strip().lower())
-                if clean_title in seen_titles:
-                    continue
-                seen_titles.add(clean_title)
-                all_raw_events.append({
-                    "title": row["title"],
-                    "summary": row["summary"] or "",
-                    "source": row["source"] or "Financial News",
-                    "url": row["url"] or "",
-                    "filing_symbol": row["symbol"],
-                    "published_at": pub_str,
-                    "publication_date": dt.isoformat(),
-                    "event_date": target_date,
-                    "discovery_date": dt.strftime("%Y-%m-%d"),
-                    "is_primary": "nse" in str(row["source"]).lower() or "bse" in str(row["source"]).lower()
-                })
+    for ann in raw_announcements:
+        pub_str = ann.get("published_at", "")
+        dt = parse_datetime_ist(pub_str) or (cutoff_dt if not is_historical else None)
+        if not dt or not ctx.is_eligible(dt):
+            continue
+        title = ann.get("title", "")
+        clean_title = re.sub(r"\s+", " ", title.strip().lower())
+        if clean_title in seen_titles:
+            continue
+        seen_titles.add(clean_title)
 
-        for row in event_rows:
-            ev_date_str = row["event_date"] or row["created_at"] or ""
-            dt = parse_datetime_ist(ev_date_str)
-            if not dt:
-                continue
-            # Strict Cutoff Rule: Event publication time must be on target_date and <= cutoff_dt
-            if ctx.is_eligible(dt):
-                title = row["headline"] or ""
-                clean_title = re.sub(r"\s+", " ", title.strip().lower())
-                if clean_title in seen_titles:
-                    continue
-                seen_titles.add(clean_title)
-                src = row["sources"] or "Historical Archive"
-                all_raw_events.append({
-                    "title": title,
-                    "summary": f"{row['what_happened']} {row['why_it_matters']}".strip(),
-                    "source": src,
-                    "url": "",
-                    "filing_symbol": row["symbol"],
-                    "published_at": ev_date_str,
-                    "publication_date": dt.isoformat(),
-                    "event_date": target_date,
-                    "discovery_date": dt.strftime("%Y-%m-%d"),
-                    "is_primary": "nse" in str(src).lower() or "bse" in str(src).lower()
-                })
+        cache_news({
+            "title": ann.get("title", ""),
+            "summary": ann.get("summary", ""),
+            "source": ann.get("source", "NSE Corporate Announcements"),
+            "url": ann.get("url", ""),
+            "published_at": pub_str,
+            "symbol": ann.get("symbol") or ann.get("raw_symbol"),
+        })
 
-        if not all_raw_events:
-            warn_msg = (
-                f"[WARNING] No archived developments found for {target_date} prior to cutoff {cutoff_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}.\n"
-                f"[WARNING] Historical data cannot be reliably reconstructed. Omitting rather than using current data."
-            )
-            print(warn_msg)
-            logger.warning(warn_msg)
-            empty_report = (
-                f"============================================================\n"
-                f"        🇮🇳 FUNDAMENTAL NEWS & ANALYSIS\n"
-                f"        Indian Equity Market\n"
-                f"        {report_date_str}\n"
-                f"============================================================\n\n"
-                f"[!] No verified corporate disclosures available for {report_date_str} in historical intelligence archive.\n"
-            )
-            return [], empty_report
+        all_raw_events.append({
+            "title": ann.get("title", ""),
+            "summary": ann.get("summary", ""),
+            "source": ann.get("source", "NSE Corporate Announcements"),
+            "url": ann.get("url", ""),
+            "filing_symbol": ann.get("raw_symbol") or ann.get("symbol"),
+            "published_at": pub_str,
+            "publication_date": dt.isoformat(),
+            "event_date": iso_date,
+            "discovery_date": dt.strftime("%Y-%m-%d"),
+            "is_primary": True
+        })
 
-    else:
-        # Live Mode
-        print("[INFO] Collecting exchange filings...")
-        logger.info("Collecting exchange filings...")
-        raw_announcements = get_all_exchange_announcements()
+    for news in raw_news:
+        pub_str = news.get("published_at", "")
+        dt = parse_datetime_ist(pub_str) or (cutoff_dt if not is_historical else None)
+        if not dt or not ctx.is_eligible(dt):
+            continue
+        title = news.get("title", "")
+        clean_title = re.sub(r"\s+", " ", title.strip().lower())
+        if clean_title in seen_titles:
+            continue
+        seen_titles.add(clean_title)
 
-        print("[INFO] Collecting financial news feeds...")
-        logger.info("Collecting financial news feeds...")
-        raw_news = collect_market_news()
+        cache_news({
+            "title": news.get("title", ""),
+            "summary": news.get("summary", ""),
+            "source": news.get("source", "Financial News"),
+            "url": news.get("url", ""),
+            "published_at": pub_str,
+            "symbol": None,
+        })
 
-        # Process Announcements & Cache to news_cache for historical track record
-        for ann in raw_announcements:
-            cache_news({
-                "title": ann.get("title", ""),
-                "summary": ann.get("summary", ""),
-                "source": ann.get("source", "NSE Corporate Announcements"),
-                "url": ann.get("url", ""),
-                "published_at": ann.get("published_at", ""),
-                "symbol": ann.get("symbol") or ann.get("raw_symbol"),
-            })
-            pub_str = ann.get("published_at", "")
-            dt = parse_datetime_ist(pub_str) or now_ist
-            all_raw_events.append({
-                "title": ann.get("title", ""),
-                "summary": ann.get("summary", ""),
-                "source": ann.get("source", "NSE Corporate Announcements"),
-                "url": ann.get("url", ""),
-                "filing_symbol": ann.get("raw_symbol") or ann.get("symbol"),
-                "published_at": pub_str,
-                "publication_date": dt.isoformat(),
-                "event_date": dt.strftime("%Y-%m-%d"),
-                "discovery_date": now_ist.strftime("%Y-%m-%d"),
-                "is_primary": True
-            })
-
-
-        # Process News items
-        for news in raw_news:
-            pub_str = news.get("published_at", "")
-            dt = parse_datetime_ist(pub_str) or now_ist
-            all_raw_events.append({
-                "title": news.get("title", ""),
-                "summary": news.get("summary", ""),
-                "source": news.get("source", "Financial News"),
-                "url": news.get("url", ""),
-                "filing_symbol": None,
-                "published_at": pub_str,
-                "publication_date": dt.isoformat(),
-                "event_date": dt.strftime("%Y-%m-%d"),
-                "discovery_date": now_ist.strftime("%Y-%m-%d"),
-                "is_primary": False
-            })
+        all_raw_events.append({
+            "title": news.get("title", ""),
+            "summary": news.get("summary", ""),
+            "source": news.get("source", "Financial News"),
+            "url": news.get("url", ""),
+            "filing_symbol": None,
+            "published_at": pub_str,
+            "publication_date": dt.isoformat(),
+            "event_date": iso_date,
+            "discovery_date": dt.strftime("%Y-%m-%d"),
+            "is_primary": any(k in news.get("source", "").lower() for k in ["pib", "sebi", "rbi", "bureau", "regulator", "exchange"])
+        })
 
     # Expand multi-company roundup containers into discrete candidate company-event pairs
     expanded_raw_events = []
@@ -357,7 +294,21 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
         expanded_raw_events.extend(sub_items)
     all_raw_events = expanded_raw_events
 
-    logger.info(f"Ingested {len(all_raw_events)} raw market developments.")
+    logger.info(f"Ingested {len(all_raw_events)} raw market developments for {iso_date}.")
+
+    if not all_raw_events:
+        warn_msg = f"[!] No verified corporate disclosures available for {report_date_str}."
+        print(warn_msg)
+        logger.warning(warn_msg)
+        empty_report = (
+            f"============================================================\n"
+            f"        🇮🇳 FUNDAMENTAL NEWS & ANALYSIS\n"
+            f"        Indian Equity Market\n"
+            f"        {report_date_str}\n"
+            f"============================================================\n\n"
+            f"[!] No verified corporate disclosures available for {report_date_str}.\n"
+        )
+        return [], empty_report
 
     # Step 2: Quality Gate 1 — Noise Filter
     print("[INFO] Filtering routine disclosures and stale news...")
@@ -499,12 +450,17 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
     fna_items = top_news
 
     # Print pipeline diagnostic counters
-    print(f"[INFO] Raw developments: {len(all_raw_events)}")
-    print(f"[INFO] Potentially fundamental: {len(material_events)}")
-    print(f"[INFO] Entity-validated: {len(resolved_events)}")
-    print(f"[INFO] Canonical events: {len(clusters)}")
-    print(f"[INFO] Research candidates: {len(evaluated_candidates)}")
-    print(f"[INFO] Final TOP NEWS: {len(top_news)}")
+    print("\n" + "=" * 60)
+    print("        RESEARCH EXECUTION DIAGNOSTICS")
+    print("=" * 60)
+    print(f"Requested Research Date: {iso_date} (Cutoff: {cutoff_dt.strftime('%H:%M:%S IST')})")
+    print(f"Candidates Retrieved: {len(all_raw_events)}")
+    print(f"Surviving Materiality Gate: {len(material_events)}")
+    print(f"Surviving Entity Validation: {len(resolved_events)}")
+    print(f"Canonical Event Clusters: {len(clusters)}")
+    print(f"Research Candidates Evaluated: {len(evaluated_candidates)}")
+    print(f"Final TOP NEWS: {len(top_news)}")
+    print("=" * 60 + "\n")
 
     logger.info(f"Selected {len(top_news)} TOP NEWS stories for final bulletin.")
 

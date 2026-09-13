@@ -123,7 +123,10 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
     freshness = 9.5
 
     # 6. Evidence Strength (0-10)
-    if "nse" in sources.lower() or "bse" in sources.lower():
+    is_very_brief = len(full_text.strip()) < 80
+    if is_very_brief:
+        evidence_strength = 5.0
+    elif "nse" in sources.lower() or "bse" in sources.lower():
         evidence_strength = 10.0
     elif any(w in sources.lower() for w in ["reuters", "business standard", "economic times", "mint", "livemint"]):
         evidence_strength = 9.0
@@ -147,7 +150,9 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
 
     # 9. Investor Relevance (0-10)
     investor_rel = 7.5
-    if ev_type in ["ORDER_CONTRACT", "GOVERNMENT_EVENT", "FUNDING_EQUITY", "OPERATING_UPDATE"]:
+    if is_very_brief:
+        investor_rel = 5.5
+    elif ev_type in ["ORDER_CONTRACT", "GOVERNMENT_EVENT", "FUNDING_EQUITY", "OPERATING_UPDATE"]:
         investor_rel = 9.0
     elif ev_type in ["COMMODITY_EVENT", "MANAGEMENT_EVENT", "PRODUCT_APPROVAL"]:
         investor_rel = 8.5
@@ -159,8 +164,10 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
         quantifiability = 9.0
     elif any(w in full_text for w in ["%", "mw", "tonnes", "bbl", "crore", "cr"]):
         quantifiability = 8.0
+    elif is_very_brief:
+        quantifiability = 3.5
     else:
-        quantifiability = 6.0
+        quantifiability = 5.5
 
     # Composite weighted RESEARCH_IMPORTANCE_SCORE
     composite_score = (
@@ -196,7 +203,7 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
 def assign_materiality_tier(item: Dict[str, Any], scores: Any = None, total_score: Optional[float] = None) -> str:
     """
     Categorizes candidate into Tier A (Must Consider), Tier B (Strong Secondary), or Tier C (Reject).
-    Accepts scores as a dictionary, float, or explicit total_score kwarg.
+    Strictly evidence-driven: Requires high score and concrete verification, not just a category keyword.
     """
     if total_score is not None:
         res_score = float(total_score)
@@ -211,29 +218,24 @@ def assign_materiality_tier(item: Dict[str, Any], scores: Any = None, total_scor
     order_val = item.get("order_value_cr")
     pct_rev = item.get("relative_revenue_pct")
     direction = item.get("fundamental_direction")
+    why = item.get("why_it_matters", "").lower()
 
-    # Tier A criteria
+    # Tier A criteria: High analytical confidence, verifiable materiality
     if (
         res_score >= 8.2 or
         res_score >= 80.0 or
-        ev_type in ["GOVERNMENT_EVENT", "FUNDING_EQUITY"] or
         (ev_type == "ORDER_CONTRACT" and ((pct_rev and pct_rev >= 10.0) or (order_val and order_val >= 250.0))) or
-        (ev_type == "MANAGEMENT_EVENT" and direction == "Negative") or
+        (ev_type == "MANAGEMENT_EVENT" and direction == "Negative" and ("auditor" in why or res_score >= 7.5)) or
+        (ev_type == "GOVERNMENT_EVENT" and res_score >= 7.8) or
         (ev_type == "OPERATING_UPDATE" and order_val and order_val >= 500.0)
     ):
         return "Tier A"
 
-    # Tier B criteria
-    if (
-        res_score >= 6.8 or
-        res_score >= 65.0 or
-        ev_type in [
-            "ORDER_CONTRACT", "OPERATING_UPDATE", "OPERATIONAL_INITIATIVE", 
-            "COMMODITY_EVENT", "FUNDING_DEBT_EVENT", "PRODUCT_APPROVAL", 
-            "STRATEGIC_DEAL", "ACQUISITION", "CAPACITY_EXPANSION"
-        ]
-    ):
+    # Tier B criteria: Requires solid evidence score (>= 6.8 or 68.0), or quantified financial impact (>= 6.5)
+    if res_score >= 6.8 or res_score >= 68.0 or (res_score >= 6.5 and (order_val or pct_rev)):
         return "Tier B"
+
+    return "Tier C"
 
     return "Tier C"
 

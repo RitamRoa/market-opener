@@ -110,3 +110,100 @@ def test_dac_defence_approval_contextualization():
     assert "procurement pipeline" in item["key_financial_implication"].lower()
     # Confirm it does not falsely claim immediate booked revenue
     assert "immediate booked revenue" not in item["why_it_matters"].lower() or "rather than" in item["why_it_matters"].lower()
+
+
+def test_l1_lowest_bidder_contingency():
+    """L1 lowest bidder announcements must NOT claim firm order-book additions or signed contracts."""
+    raw_event = {
+        "title": "Rail Vikas Nigam Limited emerges as the Lowest Bidder (L1) from East Coast Railway",
+        "company_name": "Rail Vikas Nigam Limited",
+        "symbol": "RVNL.NS",
+        "summary": "Rail Vikas Nigam Limited emerges as the Lowest Bidder (L1) from East Coast Railway for construction of third line.",
+        "published_at": "2026-09-03T10:00:00+05:30",
+        "source": "NSE"
+    }
+    item = synthesize_fna_item(raw_event, debug=True)
+    assert item is not None
+    assert "lowest bidder" in item["headline"].lower() or "l1" in item["headline"].lower()
+    assert "contingent" in item["why_it_matters"].lower()
+    assert "letter of award" in item["why_it_matters"].lower() or "loa" in item["why_it_matters"].lower()
+    assert "strengthens executable order book" not in item["why_it_matters"].lower()
+    assert "contingent" in item["fundamental_impact"].lower()
+
+
+def test_loi_commercial_framework_not_signed_contract():
+    """LOI announcements must establish commercial framework, NOT claim signed contract or execution."""
+    raw_event = {
+        "title": "Ceigall India receives LoI for power transmission project worth Rs 5,300 crore",
+        "company_name": "Ceigall India Ltd",
+        "symbol": "CEIGALL.NS",
+        "summary": "Ceigall India Ltd has received a Letter of Intent (LoI) for an interstate power transmission line project.",
+        "published_at": "2026-09-03T10:00:00+05:30",
+        "source": "BSE"
+    }
+    item = synthesize_fna_item(raw_event, debug=True)
+    assert item is not None
+    assert "signed contract" not in item["why_it_matters"].lower()
+    assert "definitive contract" in item["why_it_matters"].lower()
+    assert "preliminary" in item["fundamental_impact"].lower() or "pending definitive" in item["fundamental_impact"].lower()
+
+
+def test_balu_forge_machinery_acquisition_not_generation_footprint():
+    """Acquisition of Ring Rolling Mill must be precision manufacturing, NOT generation footprint."""
+    raw_event = {
+        "title": "Balu Forge acquires specialized Ring Rolling Mill for precision manufacturing",
+        "company_name": "Balu Forge Industries Ltd",
+        "symbol": "BALUFORGE.BO",
+        "summary": "Balu Forge Industries has acquired a precision Ring Rolling Mill to expand in-house forging and machining capabilities.",
+        "published_at": "2026-09-03T10:00:00+05:30",
+        "source": "BSE"
+    }
+    item = synthesize_fna_item(raw_event, debug=True)
+    assert item is not None
+    assert "generation footprint" not in item["why_it_matters"].lower()
+    assert "manufacturing" in item["why_it_matters"].lower() or "machining" in item["why_it_matters"].lower()
+
+
+def test_unevidenced_acquisition_rejection():
+    """Empty acquisition notices with no target or financial terms must be rejected."""
+    raw_event = {
+        "title": "Updates on Acquisition",
+        "company_name": "Heranba Industries Ltd",
+        "symbol": "HERANBA.NS",
+        "summary": "Updates on Acquisition under Regulation 30 of SEBI LODR.",
+        "published_at": "2026-09-03T10:00:00+05:30",
+        "source": "NSE"
+    }
+    item = synthesize_fna_item(raw_event, debug=True)
+    assert item is None
+
+
+def test_preferential_allotment_no_capex_claim():
+    """Equity preferential allotment without capex evidence must NOT claim capex funding."""
+    raw_event = {
+        "title": "Company allots equity shares on preferential basis",
+        "company_name": "ABC Infotech Ltd",
+        "symbol": "ABC.NS",
+        "summary": "Board approved allotment of 10,00,000 equity shares on preferential basis to non-promoter group.",
+        "published_at": "2026-09-03T10:00:00+05:30",
+        "source": "NSE"
+    }
+    item = synthesize_fna_item(raw_event, debug=True)
+    assert item is not None
+    assert "funds capex" not in item["why_it_matters"].lower()
+    assert "funds capex" not in item["fundamental_impact"].lower()
+
+
+def test_sast_disclosure_rejected():
+    """SAST / Regulation 29 shareholding disclosures must be rejected."""
+    raw_event = {
+        "title": "Disclosures under Reg. 29(2) of SEBI (SAST) Regulations, 2011",
+        "company_name": "TCI Express Ltd",
+        "symbol": "TCIEXP.NS",
+        "summary": "Disclosure under Regulation 29(2) of SEBI (Substantial Acquisition of Shares and Takeovers) Regulations.",
+        "published_at": "2026-09-03T10:00:00+05:30",
+        "source": "NSE"
+    }
+    item = synthesize_fna_item(raw_event, debug=True)
+    assert item is None
+
