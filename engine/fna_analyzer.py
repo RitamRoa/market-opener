@@ -180,6 +180,10 @@ def classify_event_direction_and_type(text: str) -> Tuple[str, str, float]:
     if re.search(r"\bresignation\s+of\s+(?:secretarial|cost|internal)\s+auditor\b", text_lower):
         return "ADMINISTRATIVE", "AMBIGUOUS", 0.0
 
+    # 0.7 Rumor denials, speculative talks denial, media report clarifications denying transactions
+    if re.search(r"\b(?:denies|denied|denying)\s+(?:speculative|rumou?rs?|reports?|talks?|takeover|acquisition|merger|stake\s+sale)\b|\b(?:no\s+such\s+proposal|no\s+negotiations?|factually\s+(?:incorrect|baseless)|clarification\s+on\s+rumou?rs?)\b", text_lower):
+        return "DISCLOSURE", "AMBIGUOUS", 0.0
+
     # 1. GOVERNMENT_EVENT: Defence procurement approvals, AoN, MoD outlays
     if re.search(r"\b(?:defence\s+acquisition\s+council|dac\b|procurement\s+proposals?|acceptance\s+of\s+necessity|aon\b|defence\s+ministry\s+approves|defence\s+exports)\b", text_lower):
         return "GOVERNMENT_EVENT", "Positive", 8.8
@@ -197,16 +201,16 @@ def classify_event_direction_and_type(text: str) -> Tuple[str, str, float]:
         if re.search(approval_pattern, text_lower):
             return "PRODUCT_APPROVAL", "Positive", 8.5
 
-    # 4. REGULATORY_EVENT: Scrutiny, Penalties, Form 483 Warnings, Tax Demands, Regulatory Probes
-    if re.search(r"\b(?:form\s+483|warning\s+letter|penalty|sebi\s+penalty|tax\s+demand|search\s+and\s+seizure|adverse\s+observation|cbi\s+probe|ed\s+probe|show\s+cause|national\s+housing\s+bank|fictitious\s+loans?|rera\s+authority|order\s+received\s+under\s+section\s+\d+\s+of\s+the\s+tngst)\b", text_lower):
+    # 4. REGULATORY_EVENT: Scrutiny, Penalties, Form 483 Warnings, Tax Demands, Regulatory Probes, USFDA inspection observations
+    if re.search(r"\b(?:form\s+483|warning\s+letter|penalty|sebi\s+penalty|tax\s+demand|search\s+and\s+seizure|adverse\s+observations?|cbi\s+probe|ed\s+probe|show\s+cause|national\s+housing\s+bank|fictitious\s+loans?|rera\s+authority|order\s+received\s+under\s+section\s+\d+\s+of\s+the\s+tngst|issues?\s+\d+\s+observations?|inspection\s+(?:closes|concludes)\s+with\s+\d+\s+observations?|usfda\s+issues?\s+observations?|observations?\s+by\s+(?:us\s*)?fda|usfda\s+inspection\s+at)\b", text_lower):
         return "REGULATORY_EVENT", "Negative", 8.5
 
     # 5. ACQUISITION / AMALGAMATION: Takeovers, stake purchases, NCLT merger/amalgamation orders
-    if re.search(r"\b(?:acquires?|acquisition|takeover|buys?\s+stake|loi\s+for\s+acquisition|merger|amalgamation|scheme\s+of\s+amalgamation)\b", text_lower):
+    if re.search(r"\b(?:acquires?|acquisition\b(?!\s+financing)|takeover|buys?\s+stake|loi\s+for\s+acquisition|merger|amalgamation|scheme\s+of\s+amalgamation)\b", text_lower):
         # Reject empty generic updates without target or details
         if re.search(r"\b(?:updates\s+on\s+acquisition|about\s+acquisition)\b", text_lower) and not re.search(r"\b(?:stake|percent|%|crore|cr|in\s+[A-Z]|of\s+[A-Z]|facility|plant|mill|hospital|company|ltd|limited)\b", text):
             return "ACQUISITION", "AMBIGUOUS", 0.0
-        if any(w in text_lower for w in ["debt-funded", "high valuation", "burdensome", "stumbles", "collapses", "deal concerns"]):
+        if any(w in text_lower for w in ["debt-funded", "high valuation", "burdensome", "stumbles", "collapses", "deal concerns", "crash", "crashed", "fell sharply", "slumps", "plunges", "all-cash"]):
             return "ACQUISITION", "Negative", 8.0
         return "ACQUISITION", "Positive", 8.0
 
@@ -215,16 +219,16 @@ def classify_event_direction_and_type(text: str) -> Tuple[str, str, float]:
         return "OPERATIONAL_INITIATIVE", "Positive", 7.5
 
     # 7. ORDER_CONTRACT: EPC contracts, order wins, L1 bidder, tenders, supply deals, LoIs
-    order_win_pattern = r"\b(?:bags?|bagged|secures?|secured|securing|awarded|wins?|won|receives?|received|signs?)\b.*?\b(?:order|contract|project|mandate|epc|deal|tender|block|mine|supply\s+deal|loi\b|pipeline)\b|\b(?:lowest\s+bidder|l1\s+bidder|preferred\s+bidder|order\s+win|contract\s+win|work\s+order|receives?\s+loi|lpg\s+pipeline)\b"
+    order_win_pattern = r"\b(?:bags?|bagged|secures?|secured|securing|awarded|wins?|won|receives?|received|signs?|signed)\b.*?\b(?:orders?|contracts?|projects?|mandates?|epc|deals?|tenders?|blocks?|mines?|supply\s+(?:deal|deals|agreement|agreements)|loi\b|loas?|letters?\s+of\s+award|pipelines?|commercial\s+orders?)\b|\b(?:lowest\s+bidder|l1\s+bidder|preferred\s+bidder|order\s+wins?|contract\s+wins?|work\s+orders?|receives?\s+(?:loi|loa)|letters?\s+of\s+award|lpg\s+pipeline)\b"
     if re.search(order_win_pattern, text_lower) and not re.search(r"\b(?:nclt|court\s+order|amalgamation)\b", text_lower):
         return "ORDER_CONTRACT", "Positive", 8.5
 
     # 8. CAPACITY_EXPANSION: New plant commissioning, capex additions, production commencement
-    if re.search(r"\b(?:commissioning|new\s+plant|capacity\s+expansion|inaugurates?|commercial\s+operations?|commercial\s+production|commences?\s+(?:commercial\s+)?production|capex\s+investment)\b", text_lower):
+    if re.search(r"\b(?:commission(?:ing|ed|s)?|new\s+(?:plant|facility|unit|module|line|capacity)|capacity\s+expansion|inaugurates?|commercial\s+operations?|commercial\s+production|commences?\s+(?:commercial\s+)?production|starts?\s+commercial\s+production|capex\s+investment)\b", text_lower):
         return "CAPACITY_EXPANSION", "Positive", 8.0
 
     # 9. STRATEGIC_DEAL: MoUs, commercial agreements, strategic joint ventures, stake divestment
-    if re.search(r"\b(?:memorandum\s+of\s+understanding|mou|agreements?|joint\s+venture|strategic\s+partnership|licensing\s+pact|supply\s+agreement|nse\s+ipo|divest\s+up\s+to)\b", text_lower):
+    if re.search(r"\b(?:memorandum\s+of\s+understanding|mou|agreements?|joint\s+venture|strategic\s+partnership|collaborat(?:es?|ed|ion|ing)?|partners?hip|tie-?up|pact|licensing\s+pact|supply\s+agreement|commercial\s+pact|technology\s+transfer|nse\s+ipo|divest\s+up\s+to)\b", text_lower):
         return "STRATEGIC_DEAL", "Positive", 7.8
 
     # 10. OPERATING_UPDATE: Monthly metrics, business updates, volume growth, toll revenue
@@ -499,9 +503,9 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
     clean_summary = re.sub(pub_strip_pattern, "", summary, flags=re.IGNORECASE).strip()
     clean_summary = html.unescape(clean_summary)
     if clean_summary.lower().startswith("for deployment of"):
-        what_happened = f"{company} has entered into a transportation agreement with MFL India {clean_summary[0].lower() + clean_summary[1:]}."
-    elif clean_summary.lower().startswith("from tata power"):
-        what_happened = f"{company} has received a Letter of Intent (LoI) for an 180 MW wind power project {clean_summary[0].lower() + clean_summary[1:]}."
+        what_happened = f"{company} has entered into a transportation agreement {clean_summary[0].lower() + clean_summary[1:]}."
+    elif clean_summary.lower().startswith("from "):
+        what_happened = f"{company} has received an order {clean_summary[0].lower() + clean_summary[1:]}."
     elif ev_type == "COMMODITY_EVENT":
         what_happened = clean_summary if clean_summary and len(clean_summary) > 25 else f"Commodity benchmark movement: {clean_headline}."
     elif ev_type == "GOVERNMENT_EVENT":
@@ -515,7 +519,7 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
     # STRICT RULE: Event-specific economic derivation; ZERO boilerplate templates
     fin_implication = rel_mat.get("financial_implication_text") or "Financial magnitude cannot be reliably quantified from disclosed information."
 
-    if ev_type == "OPERATIONAL_INITIATIVE" or "e-truck" in full_text.lower():
+    if "e-truck" in full_text.lower() or "electric truck" in full_text.lower() or "logistics operations" in full_text.lower():
         truck_count_m = re.search(r"\b(\d+)\s+(?:electric\s+trucks?|e-trucks?)\b", full_text, re.IGNORECASE)
         truck_prefix = f"Deploying {truck_count_m.group(1)} electric trucks" if truck_count_m else "Deploying electric logistics fleet assets"
         why_it_matters = (
@@ -523,6 +527,15 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
         )
         fin_implication = "Optimizes ongoing operating logistics expenditure and lowers carbon intensity with zero capital outlay on transport fleet assets."
         fund_impact = "Positive — improves operational logistics efficiency and accelerates supply chain decarbonization."
+
+    elif ev_type == "OPERATIONAL_INITIATIVE" or any(w in full_text.lower() for w in ["wealth management", "expansion", "growth engine"]):
+        initiative_m = re.search(r"\b(?:expanding|targets|launches|introduces)\s+([A-Za-z0-9\s&.\-]+?(?:services?|market|platform|business))\b", full_text, re.IGNORECASE)
+        init_str = initiative_m.group(1).strip() if initiative_m else "new business service initiatives"
+        why_it_matters = (
+            f"Scaling {init_str} advances fee-based revenue diversification and expands high-margin customer franchise coverage for {company}."
+        )
+        fin_implication = "Expands non-interest fee income and operating return ratios over the medium term."
+        fund_impact = "Positive — diversifies operating revenue streams and expands fee income capabilities."
 
     elif ev_type == "FUNDING_EQUITY" or "preferential issue" in full_text.lower():
         has_capex = bool(re.search(r"\b(?:capex|expansion|new\s+plant|manufacturing\s+facility)\b", full_text.lower()))
@@ -572,14 +585,15 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
             fund_impact = "Positive — secures preliminary project commitment pending definitive contract execution."
 
         elif "repeat" in full_text.lower() and "turnkey" in full_text.lower():
-            cp_str = "state-owned refiner Indian Oil Corporation (IOCL)" if "indian oil" in full_text.lower() or "iocl" in full_text.lower() else "the client"
+            client_m = re.search(r"\bfrom\s+([A-Z][A-Za-z0-9\s&.\-]+?)(?:\s*-\s*|\.|$|,)", full_text)
+            cp_str = f"marquee client {client_m.group(1).strip()}" if client_m and len(client_m.group(1).strip()) < 40 else "the client"
             why_it_matters = (
                 f"Securing a repeat turnkey order from {cp_str} validates technical execution credentials and reinforces project pipeline continuity with a marquee client."
             )
             fund_impact = "Positive — repeat project award reinforces client retention and manufacturing pipeline continuity."
             fin_implication = "Earnings contribution will depend on delivery milestones and project execution margins over the installation schedule."
 
-        elif any(w in full_text.lower() for w in ["supply deal", "supply contract", "supply agreement", "pertuzumab", "allocation"]):
+        elif any(w in full_text.lower() for w in ["supply deal", "supply contract", "supply agreement", "commercial supply", "allocation"]):
             why_it_matters = (
                 f"Securing this multi-year commercial supply allocation expands {company}'s institutional footprint in regulated international markets, providing durable volume off-take."
             )
@@ -761,25 +775,20 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
         fund_impact = "Positive — monetizes non-core exchange equity stake and strengthens capital adequacy reserves."
 
     elif ev_type == "STRATEGIC_DEAL":
-        if "safran" in full_text.lower() or "helicopter" in full_text.lower():
+        partner_m = re.search(r"\b(?:with|between)\s+([A-Z][A-Za-z0-9\s&.\-]+?)(?:\s+for|\s+to|\.|\"|$|,)", full_text)
+        partner_str = f"with {partner_m.group(1).strip()} " if partner_m and len(partner_m.group(1).strip()) < 35 else ""
+        if "joint venture" in full_text.lower() or "jv" in full_text.lower():
             why_it_matters = (
-                f"Signing this strategic MoU with Safran Helicopter Engines establishes collaboration in aviation software solutions, "
-                f"expanding {company}'s enterprise software footprint in aerospace."
-            )
-            fund_impact = "Positive — establishes strategic aerospace industry alignment and expands joint commercial reach."
-            fin_implication = "Strategic partnerships support multi-year software licensing and implementation pipelines without immediate capital outlay."
-        elif "joint venture" in full_text.lower() or "jv" in full_text.lower():
-            why_it_matters = (
-                f"Entering into a Joint Venture agreement establishes strategic collaboration for {company}, "
+                f"Entering into a Joint Venture agreement {partner_str}establishes strategic collaboration for {company}, "
                 f"combining technical capabilities and market access to address target product segments."
-            )
+            ).replace("  ", " ")
             fund_impact = "Positive — establishes strategic commercial alignment and shared manufacturing/distribution capabilities."
             fin_implication = "Financial realization will depend on capitalization of the JV entity and subsequent commercial production ramp-up."
         else:
             why_it_matters = (
-                f"Entering into this strategic agreement establishes commercial collaboration for {company}, "
+                f"Signing this strategic agreement {partner_str}establishes commercial collaboration for {company}, "
                 f"strengthening business development and partner alignment."
-            )
+            ).replace("  ", " ")
             fund_impact = "Positive — establishes strategic commercial alignment and collaborative business development."
             fin_implication = "Collaborative partnerships create forward commercial pipelines, with revenue realization contingent on individual client contracts."
 
@@ -788,29 +797,34 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
         if re.search(r"\b(?:updates\s+on\s+acquisition|about\s+acquisition)\b", full_text.lower()) and not re.search(r"\b(?:stake|percent|%|crore|cr|in\s+[A-Z]|of\s+[A-Z]|facility|plant|mill|hospital|company|ltd|limited)\b", full_text):
             return None  # Discard unevidenced acquisition notice!
 
-        if "ring rolling" in full_text.lower():
-            asset_label = "specialized Ring Rolling Production Line" if "production line" in full_text.lower() else "specialized Ring Rolling Mill"
+        # Precision machinery / manufacturing asset acquisition
+        if any(w in full_text.lower() for w in ["production line", "machining", "forging", "mill", "manufacturing facility", "ring rolling", "machinery", "equipment"]):
+            asset_m = re.search(r"\b(?:acquisition\s+of|acquires?\s+)(?:specialized\s+)?([A-Za-z0-9\s&.\-]+?(?:production\s+line|mill|facility|plant|machinery|equipment))\b", full_text, re.IGNORECASE)
+            asset_label = asset_m.group(1).strip() if asset_m else "specialized manufacturing assets"
             why_it_matters = (
                 f"Acquiring the {asset_label} enhances in-house precision manufacturing and machining capabilities for {company}, "
                 f"expanding component fabrication throughput and reducing external job-work dependence."
             )
             fund_impact = "Positive — expands in-house manufacturing capabilities and specialized machining capacity."
             fin_implication = "Capital investment expands productive fixed assets without ongoing third-party job-work costs."
-        elif "kalinga hospital" in full_text.lower() or "hospital" in full_text.lower():
-            target_name = "Kalinga Hospital" if "kalinga hospital" in full_text.lower() else "target hospital assets"
+        elif any(w in full_text.lower() for w in ["hospital", "clinical", "healthcare facility", "bed capacity"]):
+            hosp_m = re.search(r"\b(?:in|of)\s+([A-Za-z0-9\s&.\-]+?hospital[A-Za-z0-9\s&.\-]*?)\b", full_text, re.IGNORECASE)
+            target_name = hosp_m.group(1).strip() if hosp_m else "target hospital assets"
             why_it_matters = (
                 f"Infusing funds into {target_name} expands {company}'s healthcare delivery network and operational bed capacity, "
                 f"strengthening its clinical presence in target regional healthcare markets."
             )
             fund_impact = "Positive — expands healthcare delivery footprint and operational clinical bed capacity."
             fin_implication = "Operational revenue and bed occupancy from the acquired healthcare facility will consolidate post transaction closing."
-        elif "matrix labs" in full_text.lower() or ("51%" in full_text and "stake" in full_text.lower()):
+        elif any(w in full_text.lower() for w in ["diagnostic", "diagnocare", "pathology", "testing lab"]):
+            stake_m = re.search(r"(\d+(?:\.\d+)?\s*%)", full_text)
+            stake_str = f"a {stake_m.group(1)} controlling stake in target diagnostic operations" if stake_m else "a controlling stake in target diagnostic operations"
             why_it_matters = (
-                f"Acquiring a 51% controlling stake in Matrix Labs Diagnocare enables {company} to expand into healthcare diagnostic services, "
+                f"Acquiring {stake_str} enables {company} to expand into healthcare diagnostic services, "
                 f"diversifying its operating revenue streams."
             )
             fund_impact = "Positive — broadens operating presence into healthcare diagnostics through majority control."
-            fin_implication = "Target financials will consolidate into {company}'s earnings following closing of the share purchase agreement."
+            fin_implication = f"Target financials will consolidate into {company}'s earnings following closing of the share purchase agreement."
         elif direction == "Positive":
             target_m = re.search(r"\b(?:acquisition\s+of|acquires?\s+(?:stake\s+in\s+)?|stake\s+in)\s+([A-Z][A-Za-z0-9\s&.\-]+?)(?:\.|$|,|\s+for|\s+valued)", full_text)
             target_str = f"in {target_m.group(1).strip()} " if target_m and len(target_m.group(1).strip()) < 40 else ""
@@ -827,7 +841,7 @@ def synthesize_fna_item(raw_event: Dict[str, Any], debug: bool = False) -> Optio
             fund_impact = "Negative — balance sheet leverage and integration execution risk."
             fin_implication = "Acquisition debt service and amortization charges pose near-term return on capital dilution."
 
-    elif ev_type in ["CUSTOMER_EVENT", "INDUSTRY_EVENT"] and any(w in full_text.lower() for w in ["apple", "iphone", "foldable phone"]):
+    elif ev_type in ["CUSTOMER_EVENT", "INDUSTRY_EVENT"] and any(w in full_text.lower() for w in ["hardware", "smartphone", "smartphones", "handset", "consumer electronics", "devices", "distribution channel", "retail velocity"]):
         why_it_matters = (
             f"Anticipation around next-generation consumer hardware releases accelerates volume distribution throughput and working capital turnover across {company}'s organized distribution channels."
         )

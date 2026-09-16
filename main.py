@@ -63,8 +63,8 @@ def main():
     parser.add_argument(
         "--max-items", 
         type=int, 
-        default=15, 
-        help="Maximum number of TOP NEWS developments to feature (default: 15)"
+        default=None, 
+        help="Optional ceiling on number of TOP NEWS developments (default: all actionable stocks with 4-5 min target)"
     )
     parser.add_argument(
         "--cutoff",

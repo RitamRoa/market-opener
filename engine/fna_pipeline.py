@@ -26,6 +26,7 @@ from engine.candidate_engine import (
     assign_materiality_tier,
     map_event_to_discovery_bucket,
     rank_daily_research_candidates,
+    is_genuinely_actionable_candidate,
     format_candidate_debug_log
 )
 
@@ -149,7 +150,7 @@ def compute_composite_ranking_score(it: Dict[str, Any]) -> float:
     return score
 
 
-def select_daily_top_news(qualified_tier_a: List[Dict[str, Any]], qualified_tier_b: List[Dict[str, Any]], max_items: int = 15) -> List[Dict[str, Any]]:
+def select_daily_top_news(qualified_tier_a: List[Dict[str, Any]], qualified_tier_b: List[Dict[str, Any]], max_items: int = 5) -> List[Dict[str, Any]]:
     """
     Two-stage selection model (Section 7 & 32-34):
     1. Filter strictly for POSITIVE or NEGATIVE (never AMBIGUOUS/NEUTRAL).
@@ -174,7 +175,7 @@ from engine.run_context import RunContext, set_current_context, get_current_cont
 from engine.db import cache_news
 
 
-def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Optional[str] = None, cutoff_time: str = "23:59:59") -> Tuple[List[Dict[str, Any]], str]:
+def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, target_date: Optional[str] = None, cutoff_time: str = "23:59:59", min_target: int = 4) -> Tuple[List[Dict[str, Any]], str]:
     """
     Executes the event-first FNA pipeline and returns (top_news_items, formatted_report_text).
     Supports live scanning and historical date reconstruction via target_date in Asia/Kolkata timezone.
@@ -415,14 +416,9 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
         tier = assign_materiality_tier(item, score_dict["total_score"])
         item["tier"] = tier
 
-        if tier == "Tier C":
-            if debug:
-                print(format_candidate_debug_log(item, decision="REJECT (Tier C)"))
-            continue
+        company_key = (item.get("company_name") or item.get("symbol") or sym).strip().lower()
 
-        company_key = item.get("symbol") or item.get("company_name", sym)
-
-        # Retain highest importance candidate per company
+        # Retain highest importance candidate per company in the evaluated pool
         if company_key in seen_companies:
             prev_item = seen_companies[company_key]
             if item.get("research_importance_score", 0) > prev_item.get("research_importance_score", 0):
@@ -436,8 +432,46 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
         evaluated_candidates.append(item)
         save_fna_event(item)
 
-    # Step 6: Relative Daily Ranking & Bucket Balancing across valid candidates
-    top_news = rank_daily_research_candidates(evaluated_candidates, max_items=max_items)
+    # Step 5.1: Actionability Assessment across evaluated candidates
+    actionable_candidates = []
+    for cand in evaluated_candidates:
+        is_act, reason = is_genuinely_actionable_candidate(cand)
+        if is_act:
+            cand["actionable_reason"] = reason
+            actionable_candidates.append(cand)
+
+    # Step 6: Relative Daily Ranking & Selection
+    # Discovers all genuinely actionable stocks with a minimum target of 4-5 without artificial 5-item cap.
+    ranked_pool = rank_daily_research_candidates(
+        evaluated_candidates,
+        max_items=max_items,
+        min_target=min_target,
+        max_ceiling=15
+    )
+
+    from engine.candidate_scanner import get_closing_price_for_date
+    print(f"[INFO] Fetching closing prices for candidates on {iso_date}...")
+    valid_listed_news = []
+    seen_selected_companies = set()
+    for it in ranked_pool:
+        comp_key = (it.get("company_name") or it.get("symbol", "")).strip().lower()
+        if comp_key in seen_selected_companies:
+            continue
+        sym = it.get("symbol", "")
+        close_p = get_closing_price_for_date(sym, target_date=iso_date)
+        if close_p is not None and close_p > 0:
+            it["closing_price"] = close_p
+            valid_listed_news.append(it)
+            seen_selected_companies.add(comp_key)
+            if max_items is not None and len(valid_listed_news) >= max_items:
+                break
+        else:
+            logger.info(f"Omitted candidate {sym} ({it.get('company_name')}): unlisted or no valid closing price on {iso_date}.")
+
+    top_news = valid_listed_news
+
+    # Sort final selected stocks strictly by LOWEST CLOSING PRICE -> HIGHEST CLOSING PRICE
+    top_news.sort(key=lambda x: x["closing_price"])
 
     # Log candidate selection decisions in debug mode
     if debug:
@@ -449,16 +483,17 @@ def run_fna_pipeline(max_items: int = 15, debug: bool = False, target_date: Opti
 
     fna_items = top_news
 
-    # Print pipeline diagnostic counters
+    # Print pipeline diagnostic counters matching Section 12 exactly
     print("\n" + "=" * 60)
     print("        RESEARCH EXECUTION DIAGNOSTICS")
     print("=" * 60)
     print(f"Requested Research Date: {iso_date} (Cutoff: {cutoff_dt.strftime('%H:%M:%S IST')})")
     print(f"Candidates Retrieved: {len(all_raw_events)}")
-    print(f"Surviving Materiality Gate: {len(material_events)}")
-    print(f"Surviving Entity Validation: {len(resolved_events)}")
-    print(f"Canonical Event Clusters: {len(clusters)}")
-    print(f"Research Candidates Evaluated: {len(evaluated_candidates)}")
+    print(f"Surviving Initial Materiality: {len(material_events)}")
+    print(f"Validated Entities: {len(resolved_events)}")
+    print(f"Canonical Events: {len(clusters)}")
+    print(f"Fundamental Candidates Evaluated: {len(evaluated_candidates)}")
+    print(f"Actionable Candidates: {len(actionable_candidates)}")
     print(f"Final TOP NEWS: {len(top_news)}")
     print("=" * 60 + "\n")
 
@@ -511,7 +546,12 @@ def format_top_news_report(report_date_str: str, items: List[Dict[str, Any]]) ->
     else:
         for i, item in enumerate(items, start=1):
             clean_ticker = item.get("symbol", "").replace(".NS", "").replace(".BO", "")
-            company_header = f"{item.get('company_name')} ({clean_ticker}) — {item.get('fundamental_direction')}"
+            price = item.get("closing_price")
+            if price is not None and isinstance(price, (int, float)) and price > 0:
+                price_str = f"₹{int(price):,}" if float(price).is_integer() else f"₹{price:,.2f}"
+                company_header = f"{item.get('company_name')} ({clean_ticker}) — {price_str} — {item.get('fundamental_direction')}"
+            else:
+                company_header = f"{item.get('company_name')} ({clean_ticker}) — {item.get('fundamental_direction')}"
             
             clean_headline = re.sub(r"[\r\n]+", " ", str(item.get("headline", ""))).strip()
             what_happened = re.sub(r"[\r\n]+", " ", str(item.get("what_happened", ""))).strip()

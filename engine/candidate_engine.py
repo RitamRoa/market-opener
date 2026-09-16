@@ -231,20 +231,68 @@ def assign_materiality_tier(item: Dict[str, Any], scores: Any = None, total_scor
     ):
         return "Tier A"
 
-    # Tier B criteria: Requires solid evidence score (>= 6.8 or 68.0), or quantified financial impact (>= 6.5)
-    if res_score >= 6.8 or res_score >= 68.0 or (res_score >= 6.5 and (order_val or pct_rev)):
+    # Tier B criteria: Requires solid evidence score (>= 6.0 or 60.0), or quantified financial impact (>= 5.5)
+    if res_score >= 6.0 or res_score >= 60.0 or (res_score >= 5.5 and (order_val or pct_rev)):
         return "Tier B"
 
     return "Tier C"
 
-    return "Tier C"
+
+def is_genuinely_actionable_candidate(cand: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Evaluates whether a candidate provides a credible, sufficiently material fundamental development
+    that could reasonably matter to an investor or analyst monitoring the stock.
+    Returns (is_actionable: bool, reason: str).
+    """
+    direction = cand.get("fundamental_direction")
+    if direction not in ["Positive", "Negative"]:
+        return False, f"Direction '{direction}' is ambiguous or non-directional."
+
+    scores = cand.get("research_scores", {})
+    total_score = scores.get("total_score", cand.get("research_importance_score", 0.0))
+    tier = cand.get("tier", "Tier C")
+    ev_type = cand.get("event_type", "OTHER_MATERIAL")
+    
+    # Tier A: High-conviction fundamental development
+    if tier == "Tier A" or total_score >= 8.0:
+        return True, f"Tier A high-conviction fundamental development (Score: {total_score})."
+
+    # Recognized actionable catalysts
+    actionable_types = {
+        "ORDER_CONTRACT", "CAPACITY_EXPANSION", "ACQUISITION",
+        "STRATEGIC_DEAL", "PRODUCT_APPROVAL", "REGULATORY_EVENT",
+        "OPERATING_UPDATE", "GOVERNMENT_EVENT", "COMMODITY_EVENT",
+        "FUNDING_EQUITY", "FUNDING_DEBT_EVENT", "MANAGEMENT_EVENT",
+        "PRICING_EVENT", "CUSTOMER_EVENT", "FINANCIAL_RESULT"
+    }
+
+    # Tier B: Substantive economic catalyst with verified direction and mechanism
+    if tier == "Tier B" or total_score >= 6.0:
+        if ev_type in actionable_types:
+            return True, f"Actionable {ev_type} catalyst with confirmed economic impact (Score: {total_score})."
+        
+        if cand.get("order_value_cr") or cand.get("relative_revenue_pct") or cand.get("range_text"):
+            return True, f"Quantified fundamental financial impact (Score: {total_score})."
+
+    # Secondary evaluation for candidates with score >= 5.5 in recognized categories
+    if total_score >= 5.5 and ev_type in actionable_types:
+        return True, f"Secondary actionable {ev_type} development (Score: {total_score})."
+
+    return False, f"Score {total_score} below actionability threshold."
 
 
-def rank_daily_research_candidates(candidates: List[Dict[str, Any]], max_items: int = 15) -> List[Dict[str, Any]]:
+def rank_daily_research_candidates(
+    candidates: List[Dict[str, Any]], 
+    max_items: Optional[int] = None,
+    min_target: int = 4,
+    max_ceiling: int = 15
+) -> List[Dict[str, Any]]:
     """
     Performs purely evidence-driven daily ranking across all valid candidates.
-    NO forced bucket balancing. NO per-bucket caps. NO forced diversification.
-    Events are ranked strictly on merit (Tier A prioritized, then strongest Tier B).
+    Identifies all genuinely actionable stocks without artificially capping at 5.
+    - If 2 actionable exist: evaluates secondary candidates to find additional genuine opportunities, but stops if none qualify (quality beats minimum).
+    - If 5, 8, 12 actionable exist: shows the entire genuinely actionable set.
+    - If max_items is explicitly set by the caller, respects max_items.
     """
     if not candidates:
         return []
@@ -263,34 +311,49 @@ def rank_daily_research_candidates(candidates: List[Dict[str, Any]], max_items: 
     # Sort primarily by research_importance_score descending
     valid.sort(key=get_cand_score, reverse=True)
 
-    tier_a = [c for c in valid if c.get("tier") == "Tier A"]
-    tier_b = [c for c in valid if c.get("tier") == "Tier B"]
+    # Deduplicate by company so each company appears with its single best story
+    deduped_candidates: List[Dict[str, Any]] = []
+    seen_companies = set()
+    for c in valid:
+        c_key = (c.get("company_name") or c.get("symbol", "")).strip().lower()
+        if c_key not in seen_companies:
+            seen_companies.add(c_key)
+            deduped_candidates.append(c)
 
-    selected: List[Dict[str, Any]] = []
-    seen_symbols = set()
+    # Classify into primary actionable vs secondary candidates
+    actionable_candidates: List[Dict[str, Any]] = []
+    secondary_candidates: List[Dict[str, Any]] = []
 
-    # Phase 1: Include all Tier A candidates (highest merit)
-    for cand in tier_a:
-        sym = cand.get("symbol") or cand.get("company_name")
-        if sym in seen_symbols:
-            continue
-        selected.append(cand)
-        seen_symbols.add(sym)
-        if len(selected) >= max_items:
-            break
+    for cand in deduped_candidates:
+        is_act, _ = is_genuinely_actionable_candidate(cand)
+        if is_act:
+            actionable_candidates.append(cand)
+        else:
+            scores = cand.get("research_scores", {})
+            sc = scores.get("total_score", cand.get("research_importance_score", 0.0))
+            if sc >= 5.2 and cand.get("fundamental_direction") in ["Positive", "Negative"]:
+                secondary_candidates.append(cand)
 
-    # Phase 2: If remaining capacity, include strongest Tier B candidates purely by score
-    if len(selected) < max_items:
-        for cand in tier_b:
-            if len(selected) >= max_items:
+    selected = list(actionable_candidates)
+
+    # If below minimum target (e.g. only 2 or 3 actionable), evaluate secondary candidates
+    # without adding weak/irrelevant noise
+    if len(selected) < min_target:
+        for sec in secondary_candidates:
+            if len(selected) >= min_target:
                 break
-            sym = cand.get("symbol") or cand.get("company_name")
-            if sym in seen_symbols:
-                continue
-            selected.append(cand)
-            seen_symbols.add(sym)
+            ev_type = sec.get("event_type", "")
+            if ev_type in [
+                "ORDER_CONTRACT", "CAPACITY_EXPANSION", "STRATEGIC_DEAL", 
+                "PRODUCT_APPROVAL", "REGULATORY_EVENT", "FUNDING_EQUITY", "OPERATING_UPDATE"
+            ]:
+                selected.append(sec)
 
-    return selected
+    # Determine effective limit:
+    # If max_items is explicitly specified, respect it.
+    # Otherwise, show all actionable candidates up to max_ceiling (default 15).
+    effective_limit = max_items if max_items is not None else max_ceiling
+    return selected[:effective_limit]
 
 
 def format_candidate_debug_log(cand: Dict[str, Any], decision: str = "INCLUDE", reason: str = "") -> str:

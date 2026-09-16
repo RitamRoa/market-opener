@@ -8,14 +8,85 @@ Selects top 8-20 stocks for deep research.
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from engine.entity_mapper import match_company_in_text, get_company_meta
 from engine.event_detector import detect_event_type_and_sentiment
 from engine.db import get_cached_price, set_cached_price
 
 logger = logging.getLogger(__name__)
+
+
+def get_closing_price_for_date(symbol: str, target_date: Optional[str] = None) -> Optional[float]:
+    """
+    Fetches the actual closing price for the specified stock on target_date (YYYY-MM-DD).
+    - If target_date is None or today, fetches the latest completed closing price.
+    - If target_date is historical, fetches the closing price on target_date (or the most recent preceding trading day if weekend/holiday).
+    - Handles NSE (.NS) and BSE (.BO) symbols appropriately, with automatic fallback.
+    - Caches results in SQLite to avoid repeated network latency.
+    """
+    if not symbol:
+        return None
+        
+    raw_sym = symbol.strip().upper()
+    is_numeric = raw_sym.replace(".NS", "").replace(".BO", "").isdigit()
+    
+    if is_numeric:
+        canonical_sym = f"{raw_sym.replace('.NS', '').replace('.BO', '')}.BO"
+    elif raw_sym.endswith(".NS") or raw_sym.endswith(".BO"):
+        canonical_sym = raw_sym
+    else:
+        canonical_sym = f"{raw_sym}.NS"
+        
+    date_key = target_date or datetime.now().strftime("%Y-%m-%d")
+    cache_key = f"close_{date_key}"
+    
+    cached = get_cached_price(canonical_sym, cache_key, max_age_hours=24.0)
+    if cached is not None and isinstance(cached, (int, float)) and cached > 0:
+        return float(cached)
+        
+    candidate_symbols = [canonical_sym]
+    if canonical_sym.endswith(".NS"):
+        candidate_symbols.append(canonical_sym.replace(".NS", ".BO"))
+    elif canonical_sym.endswith(".BO") and not is_numeric:
+        candidate_symbols.append(canonical_sym.replace(".BO", ".NS"))
+        
+    try:
+        dt = datetime.strptime(date_key, "%Y-%m-%d")
+        is_today = (date_key == datetime.now().strftime("%Y-%m-%d"))
+    except Exception:
+        dt = datetime.now()
+        is_today = True
+
+    for sym in candidate_symbols:
+        try:
+            t = yf.Ticker(sym)
+            if is_today:
+                hist = t.history(period="5d")
+                if not hist.empty and len(hist["Close"]) > 0:
+                    valid_closes = [float(c) for c in hist["Close"] if not pd.isna(c) and c > 0]
+                    if valid_closes:
+                        close_val = round(valid_closes[-1], 2)
+                        set_cached_price(canonical_sym, cache_key, close_val)
+                        return close_val
+            else:
+                start_dt = (dt - timedelta(days=7)).strftime("%Y-%m-%d")
+                end_dt = (dt + timedelta(days=2)).strftime("%Y-%m-%d")
+                hist = t.history(start=start_dt, end=end_dt)
+                if not hist.empty and len(hist["Close"]) > 0:
+                    hist_dates = [idx.strftime("%Y-%m-%d") if hasattr(idx, 'strftime') else str(idx)[:10] for idx in hist.index]
+                    valid_closes = [float(c) for d, c in zip(hist_dates, hist["Close"]) if d <= date_key and not pd.isna(c) and c > 0]
+                    if valid_closes:
+                        close_val = round(valid_closes[-1], 2)
+                        set_cached_price(canonical_sym, cache_key, close_val)
+                        return close_val
+        except Exception as e:
+            logger.debug(f"Error fetching close for {sym} on {date_key}: {e}")
+            continue
+            
+    return None
+
 
 
 def get_stock_price_metrics(symbol: str) -> Dict[str, Any]:
@@ -245,25 +316,6 @@ def scan_and_rank_candidates(
                     "is_primary": cluster.get("is_primary", False)
                 }
 
-    # If active event list is short, inject key active market leaders to ensure full coverage (20-30 stocks)
-    active_leaders = ["RELIANCE.NS", "TATAMOTORS.NS", "HAL.NS", "SBIN.NS", "INFY.NS", "LT.NS", "ITC.NS", "BHARTIARTL.NS", "ZOMATO.NS", "SMLMAH.NS"]
-    for leader_sym in active_leaders:
-        if leader_sym not in candidates_dict:
-            meta = get_company_meta(leader_sym)
-            candidates_dict[leader_sym] = {
-                "symbol": leader_sym,
-                "company": meta["name"],
-                "sector": meta["sector"],
-                "event_type": "Market Tracking / Price Momentum",
-                "sentiment": "NEUTRAL",
-                "materiality": 0.55,
-                "main_event": f"{meta['name']}: Active trading volume and institutional positioning",
-                "summary": "High market cap influence and sector benchmark tracking",
-                "news_date": datetime.utcnow().strftime("%d-%b-%Y"),
-                "sources": ["Exchange Market Activity"],
-                "source_urls": [],
-                "is_primary": False
-            }
 
     # 3. Enrich each candidate with yfinance metrics and calculate Preliminary Score
     all_candidates = []

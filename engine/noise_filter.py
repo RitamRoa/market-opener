@@ -148,12 +148,13 @@ STALE_REGEX = re.compile("|".join(STALE_QUARTER_PATTERNS), re.IGNORECASE)
 
 # Keywords indicating genuine fundamental developments
 MATERIAL_KEYWORDS = [
-    r"\border\b", r"\bcontract\b", r"\bbagged\b", r"\bsecures\b", r"\bwon\b", r"\bdeal\b",
-    r"\bloi\b", r"\bletter\s+of\s+intent\b", r"\bmou\b", r"\bwind\s+power\b", r"\bsolar\s+plant\b", r"\brenewable\b",
-    r"\bproject\s+(?:win|order|mandate|contract)\b", r"\bcommissioning\s+of\s+project\b",
-    r"\bexpansion\b", r"\bcommission(?:ing|ed|s)?\b", r"\bnew\s+plant\b", r"\bcapex\b", r"\bcommercial\s+production\b",
+    r"\borders?\b", r"\bcontracts?\b", r"\bbagged\b", r"\bsecures?\b", r"\bwon\b", r"\bdeals?\b",
+    r"\bloi\b", r"\bloa\b", r"\bletter\s+of\s+award\b", r"\bletter\s+of\s+intent\b", r"\bmou\b", r"\bwind\s+power\b", r"\bsolar\s+plant\b", r"\brenewable\b",
+    r"\bprojects?\b", r"\bproject\s+(?:win|order|mandate|contract)s?\b", r"\bcommissioning\s+of\s+project\b",
+    r"\bexpansion\b", r"\bcommission(?:ing|ed|s)?\b", r"\bnew\s+(?:plant|facility|unit|module)\b", r"\bcapex\b", r"\bcommercial\s+production\b",
     r"\bacquisition\b", r"\bacquires\b", r"\bmerger\b", r"\bamalgamation\b", r"\bscheme\s+of\s+amalgamation\b", r"\bjoint\s+venture\b", r"\bjv\b",
-    r"\bfda\b", r"\busfda\b", r"\bform\s+483\b", r"\bwarning\s+letter\b",
+    r"\bcollaborat(?:es?|ed|ion|ing)?\b", r"\bpartners?hip\b", r"\btie-?up\b", r"\bpact\b",
+    r"\bfda\b", r"\busfda\b", r"\bform\s+483\b", r"\bwarning\s+letter\b", r"\bobservations?\b",
     r"\b(?:product|drug|clinical|environmental|tender|usfda|cdsco|dcgi|dgca|pesa|bis|pngrb)\s+approval\b",
     r"\bapproves?\s+(?:scheme|amalgamation|merger|capex|order|investment|bonus|dividend|buyback)\b",
     r"\bsecures?\s+(?:approval|nod|clearance|license)\b", r"\bclears?\b", r"\bclearance\b",
@@ -200,7 +201,7 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
 
     # Identify if a primary corporate or sovereign fundamental catalyst exists
     has_primary_catalyst = bool(re.search(
-        r"\b(?:dac\b|defence\s+acquisition|procurement|lakh\s+crore|order\b|contract\b|bags?\b|secures?\b|wins?\b|loi\b|epc\b|usfda\b|fda\b|acquisition\b|merger\b|amalgamation\b|toll\s+revenue|toll\s+collection|preferential\s+issue|rating\s+upgrade|upgrades?\s+rating|crude\s+oil|oil\s+tops|oil\s+surges|resignation\b.*?\b(?:chairman|auditor|ceo|md))\b",
+        r"\b(?:dac\b|defence\s+acquisition|procurement|lakh\s+crore|orders?\b|contracts?\b|bags?\b|secures?\b|wins?\b|loi\b|loa\b|letter\s+of\s+award|epc\b|usfda\b|fda\b|observations?\b|acquisition\b|merger\b|amalgamation\b|toll\s+revenue|toll\s+collection|preferential\s+issue|rating\s+upgrade|upgrades?\s+rating|crude\s+oil|oil\s+tops|oil\s+surges|resignation\b.*?\b(?:chairman|auditor|ceo|md))\b",
         title,
         re.IGNORECASE
     ))
@@ -231,6 +232,10 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
     if CLICKBAIT_REGEX.search(text) and not is_primary_exchange_filing and not has_primary_catalyst:
         return False, "Discarded: promotional clickbait or generic trading recommendation without verified corporate catalyst."
 
+    # 5.1 Rumor denials, speculative talks denial, media report clarifications denying transactions
+    if re.search(r"\b(?:denies|denied|denying)\s+(?:speculative|rumou?rs?|reports?|talks?|takeover|acquisition|merger|stake\s+sale)\b|\b(?:no\s+such\s+proposal|no\s+negotiations?|factually\s+(?:incorrect|baseless)|clarification\s+on\s+rumou?rs?)\b", text, re.IGNORECASE):
+        return False, "Discarded: company denies speculative reports / rumors; no fundamental transaction."
+
     # 6. Check routine compliance filings
     if ROUTINE_REGEX.search(text):
         # Unconditionally reject SAST/Takeover, AGM extensions, ESOPs, price/volume queries, and trading window closures
@@ -251,8 +256,21 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
             if not re.search(r"\b(?:upgrades?|upgraded|downgrades?|downgraded|rating\s+upgrade|rating\s+downgrade)\b", text, re.IGNORECASE):
                 return False, "Discarded: routine credit rating reaffirmation / surveillance without rating change."
 
-    # 8. Verify presence of fundamental business catalyst
+    # 8. Verify presence of fundamental business catalyst or substantive corporate development
     if MATERIAL_REGEX.search(text) or has_primary_catalyst:
         return True, "Accepted: contains substantive fundamental catalyst."
+
+    # Substantive exchange filings that passed all administrative/routine checks above
+    if is_primary_exchange_filing:
+        return True, "Accepted: substantive corporate exchange announcement for fundamental analysis."
+
+    # Substantive financial news discussing corporate actions or business developments
+    if any(w in text.lower() for w in [
+        "invest", "facility", "plant", "unit", "commercial", "production", "launch",
+        "supply", "capacity", "capex", "growth", "margin", "debt", "equity", "funding",
+        "acquisition", "approval", "patent", "regulatory", "contract", "order", "pact",
+        "partnership", "turnaround", "restructuring", "dispute", "litigation", "settlement"
+    ]):
+        return True, "Accepted: substantive business development for fundamental analysis."
 
     return False, "Discarded: lacks identifiable fundamental business or financial catalyst."

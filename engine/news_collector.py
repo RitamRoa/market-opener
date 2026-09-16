@@ -119,14 +119,31 @@ def parse_single_feed(feed_meta: Dict[str, str], timeout: int = 8) -> List[Dict[
 def collect_market_news(target_date: Optional[str] = None, max_workers: int = 6) -> List[Dict[str, Any]]:
     """
     Fetches financial news, media, and regulatory sources for the specified research date.
-    If target_date is provided and not today, queries dated search feeds for that exact date.
-    If target_date is today or None, queries standard live feeds.
+    If target_date is provided, queries dated search feeds across major Indian financial publications.
+    If target_date is today, combines dated search results with live feeds for maximum coverage.
+    If target_date is None, queries standard live feeds.
     """
     if target_date:
+        items, _ = collect_historical_market_news(target_date, max_workers=max_workers)
         today_str = datetime.now().strftime("%Y-%m-%d")
-        if target_date != today_str:
-            items, _ = collect_historical_market_news(target_date, max_workers=max_workers)
-            return items
+        if target_date == today_str:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(parse_single_feed, feed) for feed in FEED_REGISTRY]
+                for future in as_completed(futures):
+                    try:
+                        items.extend(future.result())
+                    except Exception as e:
+                        logger.debug(f"Thread execution error in feed fetcher: {e}")
+        # Deduplicate items by url / title
+        seen = set()
+        unique_items = []
+        for it in items:
+            k = (it.get("url") or it.get("title", "")).strip().lower()
+            if k not in seen:
+                seen.add(k)
+                unique_items.append(it)
+        logger.info(f"Collected total of {len(unique_items)} deduplicated news articles for {target_date}.")
+        return unique_items
 
     all_news = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

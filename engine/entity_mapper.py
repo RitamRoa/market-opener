@@ -1407,6 +1407,132 @@ INDIAN_EQUITIES = [
         "sector": "Hospitality & Renewable Energy",
         "aliases": ["juniper hotels", "juniper green energy", "juniper green", "juniper"],
         "exclusions": []
+    },
+    {
+        "symbol": "NBCC.NS",
+        "name": "NBCC (India) Ltd",
+        "sector": "Construction & Infrastructure",
+        "aliases": ["nbcc", "nbcc india", "nbcc (india)", "national buildings construction corporation"],
+        "exclusions": []
+    },
+    {
+        "symbol": "PPLPHARMA.NS",
+        "name": "Piramal Pharma Ltd",
+        "sector": "Pharmaceuticals",
+        "aliases": ["piramal pharma", "pplpharma", "piramal pharma limited"],
+        "exclusions": ["piramal enterprises", "pel"]
+    },
+    {
+        "symbol": "PEL.NS",
+        "name": "Piramal Enterprises Ltd",
+        "sector": "NBFC / Financial Services",
+        "aliases": ["piramal enterprises", "pel"],
+        "exclusions": ["piramal pharma", "pplpharma"]
+    },
+    {
+        "symbol": "NEULANDLAB.NS",
+        "name": "Neuland Laboratories Ltd",
+        "sector": "Pharmaceuticals / APIs",
+        "aliases": ["neuland laboratories", "neuland lab", "neuland labs", "neuland"],
+        "exclusions": []
+    },
+    {
+        "symbol": "BHARATFORG.NS",
+        "name": "Bharat Forge Ltd",
+        "sector": "Automobile & Defence Engineering",
+        "aliases": ["bharat forge", "kalyani group forge"],
+        "exclusions": []
+    },
+    {
+        "symbol": "MAZDOCK.NS",
+        "name": "Mazagon Dock Shipbuilders Ltd",
+        "sector": "Defence Shipbuilding",
+        "aliases": ["mazagon dock", "mazagon dock shipbuilders", "mazdock"],
+        "exclusions": []
+    },
+    {
+        "symbol": "BHEL.NS",
+        "name": "Bharat Heavy Electricals Ltd",
+        "sector": "Capital Goods & Power Equipment",
+        "aliases": ["bharat heavy electricals", "bhel"],
+        "exclusions": []
+    },
+    {
+        "symbol": "GLAND.NS",
+        "name": "Gland Pharma Ltd",
+        "sector": "Pharmaceuticals / Injectables",
+        "aliases": ["gland pharma", "gland"],
+        "exclusions": []
+    },
+    {
+        "symbol": "SONATSOFTW.NS",
+        "name": "Sonata Software Ltd",
+        "sector": "Information Technology",
+        "aliases": ["sonata software", "sonatsoftw"],
+        "exclusions": []
+    },
+    {
+        "symbol": "ACMESOLAR.NS",
+        "name": "ACME Solar Holdings Ltd",
+        "sector": "Renewable Energy / Solar",
+        "aliases": ["acme solar", "acme solar holdings", "acme cleantech", "544283"],
+        "exclusions": []
+    },
+    {
+        "symbol": "GREENPOWER.NS",
+        "name": "Orient Green Power Company Ltd",
+        "sector": "Renewable Energy / Wind & Biomass",
+        "aliases": ["orient green power", "greenpower", "orient green", "533263"],
+        "exclusions": []
+    },
+    {
+        "symbol": "EXIDEIND.NS",
+        "name": "Exide Industries Ltd",
+        "sector": "Auto Ancillaries / Batteries",
+        "aliases": ["exide industries", "exide ind", "exide"],
+        "exclusions": []
+    },
+    {
+        "symbol": "SAATVIK.BO",
+        "name": "Saatvik Green Energy Ltd",
+        "sector": "Renewable Energy / Solar Modules",
+        "aliases": ["saatvik green energy", "saatvik solar", "saatvik green"],
+        "exclusions": []
+    },
+    {
+        "symbol": "VIKRAMSOLAR.NS",
+        "name": "Vikram Solar Ltd",
+        "sector": "Renewable Energy / Solar Modules",
+        "aliases": ["vikram solar", "vikram solar limited"],
+        "exclusions": []
+    },
+    {
+        "symbol": "IDEA.NS",
+        "name": "Vodafone Idea Ltd",
+        "sector": "Telecommunications",
+        "aliases": ["vodafone idea", "voda idea", "vi"],
+        "exclusions": []
+    },
+    {
+        "symbol": "NHPC.NS",
+        "name": "NHPC Ltd",
+        "sector": "Power Generation (Hydro)",
+        "aliases": ["nhpc", "national hydroelectric power corporation"],
+        "exclusions": []
+    },
+    {
+        "symbol": "SJVN.NS",
+        "name": "SJVN Ltd",
+        "sector": "Power Generation",
+        "aliases": ["sjvn", "satluj jal vidyut nigam"],
+        "exclusions": []
+    },
+    {
+        "symbol": "RBDENIMS.BO",
+        "name": "R&B Denims Ltd",
+        "sector": "Textiles / Apparel",
+        "aliases": ["r&b denims", "rb denims", "r & b denims"],
+        "exclusions": []
     }
 ]
 
@@ -1418,7 +1544,13 @@ BARE_SYMBOL_TO_META: Dict[str, Dict[str, Any]] = {item["symbol"].replace(".NS", 
 
 def get_company_meta(symbol: str, text: Optional[str] = None) -> Dict[str, Any]:
     """Returns company metadata for any symbol, generating structured fallback if unindexed."""
-    clean_sym = symbol if symbol.endswith(".NS") or symbol.endswith(".BO") else f"{symbol}.NS"
+    is_numeric = symbol.replace(".NS", "").replace(".BO", "").isdigit()
+    if symbol.endswith(".NS") or symbol.endswith(".BO"):
+        clean_sym = symbol
+    elif is_numeric:
+        clean_sym = f"{symbol}.BO"
+    else:
+        clean_sym = f"{symbol}.NS"
     if clean_sym in SYMBOL_TO_META:
         return SYMBOL_TO_META[clean_sym]
     
@@ -1503,12 +1635,72 @@ EXTERNAL_ECONOMIC_EXPOSURE_REGISTRY = [
 
 
 
+def extract_dynamic_corporate_entity(text: str) -> Optional[Dict[str, Any]]:
+    """
+    Dynamically resolves listed Indian corporate entities mentioned with formal corporate names
+    ending in Limited or Ltd from text when not pre-indexed in INDIAN_EQUITIES.
+    Guards against law firms, legal advisors, media publishers, and government bodies.
+    """
+    if not text:
+        return None
+
+    # Exclude common media, regulatory, legal, governmental or advisor phrases
+    excluded_names = {
+        "reuters", "bloomberg", "business standard", "economic times", "the economic times",
+        "moneycontrol", "livemint", "mint", "financial express", "cnbc", "cnbc-tv18", "ndtv profit",
+        "press information bureau", "pib", "sebi", "rbi", "reserve bank of india",
+        "national stock exchange", "bse limited", "bombay stock exchange",
+        "high court", "supreme court", "central government", "government of india",
+        "ministry of finance", "ministry of defence", "defence acquisition council",
+        "nifty 50", "bse sensex", "bank nifty", "cabinet committee",
+        "dla piper", "webber wentzel", "cam", "cyril amarchand", "shardul amarchand",
+        "azb & partners", "azb", "khaitan & co", "trilegal", "luthra"
+    }
+
+    advisor_keywords = ["advise", "advisor", "advising", "counsel", "law firm", "piper", "wentzel", "amarchand", "legal", "ratings limited", "credit ratings"]
+
+    # Match formal Indian corporate names ending with Limited or Ltd
+    pattern = r"\b([A-Z][A-Za-z0-9&.\-']+(?:\s+[A-Za-z0-9&.\-']+){0,3}\s+(?:Limited|Ltd))\b"
+    matches = re.finditer(pattern, text)
+    for m in matches:
+        cand_name = m.group(1).strip()
+        cand_lower = cand_name.lower()
+        if any(ex in cand_lower for ex in excluded_names) or any(k in cand_lower for k in advisor_keywords) or len(cand_name) < 5 or len(cand_name) > 50:
+            continue
+        if is_awarding_client_in_text(text.lower(), cand_lower):
+            continue
+        words = cand_name.split()
+        first_word = re.sub(r"[^A-Za-z0-9]", "", words[0]).upper()
+        if len(first_word) >= 3:
+            bare = first_word
+        else:
+            bare = re.sub(r"[^A-Za-z0-9]", "", cand_name.replace("Limited", "").replace("Ltd", "")).upper()[:10]
+        sym = f"{bare}.NS"
+        return {
+            "symbol": sym,
+            "name": cand_name,
+            "sector": "Indian Listed Equities",
+            "aliases": [cand_lower, bare.lower()],
+            "exclusions": []
+        }
+    return None
+
+
 def resolve_external_event_beneficiary(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
     """
     Identifies listed Indian corporate beneficiaries for macro, government, commodity, or industry events
-    using a structured general reference database of economic mechanisms and verified operational exposures.
+    by checking for company exposure independently from available evidence rather than hardcoded lists.
     """
     text_lower = text.lower()
+    
+    # Check if text mentions exposed companies in the context of the commodity or macro development
+    for eq in INDIAN_EQUITIES:
+        for alias in eq.get("aliases", []):
+            if len(alias) >= 4 and re.search(rf"\b{re.escape(alias)}\b", text_lower):
+                if not any(ex in text_lower for ex in eq.get("exclusions", [])):
+                    if not is_awarding_client_in_text(text_lower, alias):
+                        return eq, f"Identified company-level exposure for '{eq['name']}' from text context."
+
     for reg in EXTERNAL_ECONOMIC_EXPOSURE_REGISTRY:
         if reg["condition"](text_lower):
             entity = reg["resolver"](text_lower)
@@ -1673,7 +1865,14 @@ def resolve_entity_from_text(text: str, filing_symbol: Optional[str] = None) -> 
     # Priority 0: If an exchange filing symbol is provided directly from NSE/BSE
     if filing_symbol:
         clean_filing = filing_symbol.strip().upper().replace(".NS", "").replace(".BO", "")
-        canonical_sym = f"{clean_filing}.NS"
+        # Check if clean_filing or scrip code matches any alias or ticker in INDIAN_EQUITIES
+        for item in INDIAN_EQUITIES:
+            if item["symbol"].replace(".NS", "").replace(".BO", "") == clean_filing or clean_filing.lower() in [a.lower() for a in item.get("aliases", [])]:
+                return item, f"Resolved via authoritative exchange filing symbol/scrip '{clean_filing}' to {item['name']} ({item['symbol']})."
+
+        is_bse = filing_symbol.strip().upper().endswith(".BO") or filing_symbol.strip().isdigit()
+        suffix = ".BO" if (is_bse or clean_filing.isdigit()) else ".NS"
+        canonical_sym = f"{clean_filing}{suffix}"
         meta = get_company_meta(canonical_sym, text=text)
 
         # Check if text explicitly discusses a different subsidiary
@@ -1718,6 +1917,9 @@ def resolve_entity_from_text(text: str, filing_symbol: Optional[str] = None) -> 
         ext_meta, ext_reason = resolve_external_event_beneficiary(text)
         if ext_meta:
             return ext_meta, ext_reason
+        dynamic_cand = extract_dynamic_corporate_entity(text)
+        if dynamic_cand:
+            return dynamic_cand, f"Dynamically extracted corporate entity '{dynamic_cand['name']}' from text."
         return None, "No verified Indian listed entity found in text."
 
     # Priority 2.1: Primary Beneficiary Resolution (Contractor/Vendor vs Awarding Customer)

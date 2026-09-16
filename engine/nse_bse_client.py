@@ -66,9 +66,9 @@ def fetch_nse_announcements() -> List[Dict[str, Any]]:
     return announcements
 
 
-def fetch_bse_announcements() -> List[Dict[str, Any]]:
+def fetch_bse_announcements(max_pages: int = 3) -> List[Dict[str, Any]]:
     """
-    Fallback fetcher for BSE public corporate announcements.
+    Fetcher for BSE public corporate announcements across multiple pages.
     """
     announcements = []
     headers = {
@@ -78,11 +78,15 @@ def fetch_bse_announcements() -> List[Dict[str, Any]]:
     }
 
     try:
-        url = "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=&strScrip=&strSearch=P&strToDate=&strType=C"
-        res = requests.get(url, headers=headers, timeout=6)
-        if res.status_code == 200:
+        for page in range(1, max_pages + 1):
+            url = f"https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno={page}&strCat=-1&strPrevDate=&strScrip=&strSearch=P&strToDate=&strType=C"
+            res = requests.get(url, headers=headers, timeout=6)
+            if res.status_code != 200:
+                break
             data = res.json()
             table = data.get("Table", [])
+            if not table:
+                break
             for item in table:
                 scrip_cd = item.get("SCRIP_CD", "")
                 company_name = item.get("SLONGNAME", "") or item.get("NEWSSUB", "")
@@ -100,6 +104,7 @@ def fetch_bse_announcements() -> List[Dict[str, Any]]:
                     "published_at": item.get("NEWS_DT", datetime.utcnow().isoformat()),
                     "is_primary": True
                 })
+        logger.info(f"Retrieved {len(announcements)} announcements from BSE across {max_pages} pages.")
     except Exception as e:
         logger.debug(f"BSE announcements fetch skipped/failed: {e}")
 
@@ -109,19 +114,32 @@ def fetch_bse_announcements() -> List[Dict[str, Any]]:
 def get_all_exchange_announcements(target_date: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Combines announcements from NSE and BSE for the specified research date.
-    If target_date is provided and not today, queries dated announcements for that exact date.
-    If target_date is today or None, queries live announcement feeds.
+    If target_date is provided, queries dated announcements for that exact date from both exchanges.
+    If target_date is today or None, queries both NSE and BSE live/dated announcement feeds.
     """
     if target_date:
         today_str = datetime.now().strftime("%Y-%m-%d")
         if target_date != today_str:
             items, _ = get_historical_exchange_announcements(target_date)
             return items
+        else:
+            # If target_date is today, query dated endpoints and supplement with live feeds
+            dated_items, _ = get_historical_exchange_announcements(target_date)
+            live_nse = fetch_nse_announcements()
+            live_bse = fetch_bse_announcements()
+            combined = dated_items + live_nse + live_bse
+            seen = set()
+            unique = []
+            for it in combined:
+                key = (it.get("url") or it.get("title", "")).strip().lower()
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(it)
+            return unique
 
     items = fetch_nse_announcements()
-    if len(items) < 5:
-        bse_items = fetch_bse_announcements()
-        items.extend(bse_items)
+    bse_items = fetch_bse_announcements()
+    items.extend(bse_items)
     return items
 
 

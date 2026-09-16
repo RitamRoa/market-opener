@@ -165,3 +165,84 @@ def test_format_candidate_debug_log():
     assert "[TYPE] ORDER_CONTRACT" in log_text
     assert "[TIER] Tier A" in log_text
     assert "[DECISION] INCLUDED" in log_text
+
+
+def test_dynamic_candidate_count_not_fixed_at_5():
+    """
+    Verifies Section 9 and Objective:
+    - 2 actionable candidates and no secondary -> returns 2 (quality beats minimum, never invents weak stocks).
+    - 2 actionable candidates and 2 strong secondary -> returns 4 (reaches min target 4).
+    - 5 actionable candidates -> returns all 5.
+    - 8 actionable candidates -> returns all 8 (no artificial 5-item cutoff).
+    - 12 actionable candidates -> returns all 12.
+    """
+    from engine.candidate_engine import is_genuinely_actionable_candidate
+
+    def make_cand(idx, tier="Tier A", ev_type="ORDER_CONTRACT", score=8.5, direction="Positive", order_val=100.0):
+        return {
+            "symbol": f"STOCK_{idx}.NS",
+            "company_name": f"Company {idx}",
+            "headline": f"Major contract {idx}",
+            "tier": tier,
+            "event_type": ev_type,
+            "research_scores": {"total_score": score},
+            "research_importance_score": score,
+            "fundamental_direction": direction,
+            "order_value_cr": order_val,
+        }
+
+    # Case 1: Only 2 genuinely actionable stocks exist, and no valid secondary exist
+    cands_2 = [
+        make_cand(1, score=8.8),
+        make_cand(2, score=8.5),
+        make_cand(3, tier="Tier C", ev_type="OTHER", score=4.0, order_val=None), # weak/noise
+    ]
+    res_2 = rank_daily_research_candidates(cands_2, min_target=4)
+    assert len(res_2) == 2
+    assert {c["symbol"] for c in res_2} == {"STOCK_1.NS", "STOCK_2.NS"}
+
+    # Case 2: 2 actionable stocks exist, and 2 strong secondary candidates exist -> supplements to 4
+    cands_2_plus_sec = [
+        make_cand(1, score=8.8),
+        make_cand(2, score=8.5),
+        make_cand(3, tier="Tier B", ev_type="ORDER_CONTRACT", score=5.4, order_val=50.0),
+        make_cand(4, tier="Tier B", ev_type="CAPACITY_EXPANSION", score=5.3, order_val=None),
+        make_cand(5, tier="Tier C", ev_type="ROUTINE", score=3.0, order_val=None),
+    ]
+    res_4 = rank_daily_research_candidates(cands_2_plus_sec, min_target=4)
+    assert len(res_4) == 4
+    assert {c["symbol"] for c in res_4} == {"STOCK_1.NS", "STOCK_2.NS", "STOCK_3.NS", "STOCK_4.NS"}
+
+    # Case 3: 5 actionable stocks exist -> returns all 5
+    cands_5 = [make_cand(i, score=8.0 - i * 0.1) for i in range(1, 6)]
+    res_5 = rank_daily_research_candidates(cands_5, min_target=4)
+    assert len(res_5) == 5
+
+    # Case 4: 8 actionable stocks exist -> returns all 8 without cutting down to 5
+    cands_8 = [make_cand(i, score=8.5 - i * 0.1) for i in range(1, 9)]
+    res_8 = rank_daily_research_candidates(cands_8, min_target=4)
+    assert len(res_8) == 8
+
+    # Case 5: 12 actionable stocks exist -> returns all 12
+    cands_12 = [make_cand(i, score=8.8 - i * 0.05) for i in range(1, 13)]
+    res_12 = rank_daily_research_candidates(cands_12, min_target=4)
+    assert len(res_12) == 12
+
+
+def test_strict_directional_requirement():
+    """Ambiguous or Neutral fundamental directions must be rejected."""
+    from engine.candidate_engine import is_genuinely_actionable_candidate
+    cand_neutral = {
+        "symbol": "TEST.NS",
+        "company_name": "Test Co",
+        "headline": "Mixed quarterly review",
+        "tier": "Tier A",
+        "event_type": "FINANCIAL_RESULT",
+        "research_scores": {"total_score": 8.5},
+        "research_importance_score": 8.5,
+        "fundamental_direction": "Neutral",
+    }
+    is_act, reason = is_genuinely_actionable_candidate(cand_neutral)
+    assert is_act is False
+    assert "ambiguous" in reason.lower()
+
