@@ -6,29 +6,32 @@
 
 The **Indian Stock Market Fundamental News & Analysis (FNA) and Opportunity Intelligence Engine** is an institutional-grade, deterministic, and evidence-driven analytical framework designed specifically for the National Stock Exchange (NSE) and Bombay Stock Exchange (BSE).
 
-The platform operates under three core principles:
+The platform operates under five core principles:
 1. **Event-First & Zero-Hallucination**: Every insight is anchored directly in verified primary regulatory filings (NSE/BSE announcements, SEBI/RBI orders, PIB releases) or established financial press.
 2. **Deterministic Mathematical Scoring**: Stocks are selected, qualified, and ranked through explicit mathematical models, multi-factor weighting schemes, and strict materiality thresholds—eliminating arbitrary heuristics and prompt hallucinations.
-3. **Local & Autonomous**: The system operates with zero external paid API keys, utilizing primary feeds, cached market data, local Python analytical modules, and optional local LLMs (via Ollama or LM Studio) with automatic fallback to built-in rule intelligence.
+3. **Broad Candidate Evaluation Before Rejection**: Potentially important fundamental events are preserved through an early noise filter and evaluated in a broad canonical candidate pool before any actionability decision is made.
+4. **Dynamic Actionability (Min Target 4–5, No Hard Limit)**: The final FNA does NOT have a hardcoded count like exactly 3 or 5 stocks. It outputs all genuinely actionable fundamental developments (whether 4, 8, 12, or 15). Quality beats minimum: if only 2–3 genuinely actionable stocks exist, it outputs 2–3 rather than inventing weak noise.
+5. **Ascending Closing Price Sorting**: Closing prices for the research date are fetched strictly after fundamental selection is finalized. Stocks are sorted from **Lowest Closing Price $\longrightarrow$ Highest Closing Price** for clean market readability, with price having **zero influence** on selection.
+6. **Local & Autonomous**: The system operates with zero external paid API keys, utilizing primary feeds, cached market data, local Python analytical modules, and optional local LLMs with automatic fallback to built-in rule intelligence.
 
 ```
 +---------------------------------------------------------------------------------------------------+
 |                                    DATA INGESTION LAYER                                           |
-|  NSE / BSE Announcements  |  Regulatory (SEBI / RBI / PIB)  |  Financial Press (ET, Mint, BS, MC) |
+|  NSE / BSE Announcements (Multi-page)  |  Regulatory (SEBI/RBI/PIB)  |  Financial Press (8+ Feeds) |
 +---------------------------------------------------------------------------------------------------+
                                                   │
                                                   ▼
 +---------------------------------------------------------------------------------------------------+
-|                                  STAGE 1: QUALITY GATING & FILTERS                                |
+|                            STAGE 1: QUALITY GATING & BASIC NOISE FILTER                           |
 |  - Noise Filter (Reject routine compliance, AGM notices, ESOPs, trading windows, broker calls)    |
-|  - Freshness Gate (Reject stale FY23/FY24 historical quarterly updates)                           |
+|  - Freshness Gate (Reject stale historical quarterly updates)                                     |
 |  - Multi-Company Article Splitter (Disassemble roundup articles into discrete company events)     |
 +---------------------------------------------------------------------------------------------------+
                                                   │
                                                   ▼
 +---------------------------------------------------------------------------------------------------+
 |                             STAGE 2: ENTITY RESOLUTION & VERIFICATION                             |
-|  - Authoritative Symbol Resolution (Ticker mapping to .NS / .BO)                                  |
+|  - Authoritative Symbol Resolution (Ticker mapping to .NS / .BO & BSE scrip fallback)             |
 |  - Parent vs Subsidiary Disambiguation (e.g., ICICI Bank vs ICICI Prudential vs ICICI Lombard)    |
 |  - Economic Beneficiary Role Resolution (Contractor/Issuer vs Buyer/Customer)                    |
 +---------------------------------------------------------------------------------------------------+
@@ -41,41 +44,40 @@ The platform operates under three core principles:
                                                   │
                                                   ▼
 +---------------------------------------------------------------------------------------------------+
-|                     STAGE 4: FINANCIAL CONTEXT & RELATIVE MATERIALITY                             |
-|  - Semantic Regex Extraction (Order values, value ranges, PAT, Capex, Penalties, Equity Raises)   |
-|  - Baseline Retrieval (Annual Revenue, EBITDA, Market Cap via SQLite cache / yfinance)            |
-|  - Relative Sizing: Metric / Annual Revenue (%)                                                   |
-+---------------------------------------------------------------------------------------------------+
-                                                  │
-                                                  ▼
-+---------------------------------------------------------------------------------------------------+
-|                        STAGE 5: SYNTHESIS & TWO-PASS CONSISTENCY GATE                             |
-|  - 16 Canonical Event Categories (Strict POSITIVE or NEGATIVE directionality only)               |
-|  - Pass 1: Source -> Event Fidelity Check                                                         |
-|  - Pass 2: Event -> Analysis Consistency Check (Zero forbidden boilerplate, strict fact bounds)   |
-+---------------------------------------------------------------------------------------------------+
-                                                  │
-                                                  ▼
-+---------------------------------------------------------------------------------------------------+
-|                       STAGE 6: MATHEMATICAL SCORING & TIERING MODELS                              |
+|                  STAGE 4: FUNDAMENTAL ANALYSIS OF BROAD CANONICAL CANDIDATE POOL                  |
+|  - Event Synthesis across 16 Canonical Event Categories                                           |
+|  - Strict Binary Directionality Check: Positive or Negative only (Reject Ambiguous/Neutral)       |
 |  - 10-Factor Research Importance Model -> RESEARCH_IMPORTANCE_SCORE (0 to 10)                      |
-|  - Materiality Tier Assignment -> Tier A (Must Consider), Tier B (Secondary), Tier C (Reject)     |
-|  - Preliminary Technical & Volume Scoring (0 to 100)                                              |
-|  - Priced-In Evaluation Score (0 to 10) & 5-Dimension Fundamental Impact Matrix                   |
-|  - Master Opportunity Score (0 to 100) & Confidence Score (0 to 100)                              |
+|  - Materiality Tier Assignment -> Tier A (Must Consider), Tier B (Secondary), Tier C              |
 +---------------------------------------------------------------------------------------------------+
                                                   │
                                                   ▼
 +---------------------------------------------------------------------------------------------------+
-|                      STAGE 7: RELATIVE DAILY RANKING & STOCK SELECTION                            |
-|  - Retain top event per listed entity (de-duplicate multiple events per company)                  |
-|  - Evidence-Driven Priority: Tier A candidates ranked first, followed by strongest Tier B         |
-|  - Select Final Top N Opportunities (Default: 5 to 15 stocks)                                     |
+|                        STAGE 5: ACTIONABILITY & MATERIALITY ASSESSMENT                            |
+|  - Evaluate genuine operational catalysts (Orders, Capex, Approvals, M&A, Restructuring)        |
+|  - Verified economic impact & quantified scale vs company baseline                                |
++---------------------------------------------------------------------------------------------------+
+                                                  │
+                                                  ▼
++---------------------------------------------------------------------------------------------------+
+|                STAGE 6: DYNAMIC CANDIDATE RANKING (MIN TARGET 4–5, NO FIXED CAP)                  |
+|  - Prioritize Tier A & primary actionable catalysts                                               |
+|  - If < 4: Evaluate qualified secondary candidates without adding weak noise (Quality > Minimum)  |
+|  - Show entire actionable pool (e.g. 5, 8, 12, 15 stocks; never arbitrarily capped at 5)          |
++---------------------------------------------------------------------------------------------------+
+                                                  │
+                                                  ▼
++---------------------------------------------------------------------------------------------------+
+|                 STAGE 7: CLOSING PRICE RETRIEVAL & ASCENDING SORT (LOWEST -> HIGHEST)             |
+|  - Retrieve date-specific closing prices on or before requested date                              |
+|  - Filter out unlisted entities (DRHPs, pre-IPO filings)                                          |
+|  - Sort final report: Lowest Closing Price -> Highest Closing Price (Zero selection influence)    |
 +---------------------------------------------------------------------------------------------------+
                                                   │
                                                   ▼
 +---------------------------------------------------------------------------------------------------+
 |                               OUTPUT GENERATION & PERSISTENCE                                     |
+|  - 7-Stage Diagnostic Funnel Report (Candidates Retrieved -> Final TOP NEWS)                      |
 |  - Sharekhan-Style Terminal FNA Bulletin & Comprehensive Intelligence Markdown Report             |
 |  - SQLite Storage & JSON/Text Export in `reports/`                                                |
 +---------------------------------------------------------------------------------------------------+
@@ -143,6 +145,9 @@ Events matching any of the following patterns are discarded:
 #### E. Credit Rating Reaffirmation & ESG Filtering
 - Rejects non-debt ESG ratings (sustainability ratings).
 - Rejects routine annual credit rating surveillance/reaffirmations (`reaffirmed`, `reiterated`, `maintains rating`). **Only rating upgrades or downgrades are admitted.**
+
+#### F. Early Filtering Boundary Rule (Noise Removal Only)
+The early filter strictly removes obvious administrative noise and non-economic filings. It explicitly does **NOT** eliminate a candidate merely because it does not match a predefined template or rigid event category. Potentially important fundamental events (e.g., plant operationalization, capacity commissioning, strategic agreements, venture investments, disputes) survive this gate to be fully evaluated in the broad candidate pool.
 
 ---
 
@@ -335,9 +340,9 @@ Where the weights $w_i$ and factors $F_i \in [0.0, 10.0]$ are defined as:
 Every candidate is evaluated and categorized into one of three strict tiers:
 
 $$\text{Tier} = \begin{cases} 
-\mathbf{Tier\ A} \quad (\text{Must Consider}) & \text{if } S_{\text{res}} \ge 8.2 \text{ OR meets Tier A Specific Rule} \\
-\mathbf{Tier\ B} \quad (\text{Strong Secondary}) & \text{if } S_{\text{res}} \ge 6.8 \text{ OR } (S_{\text{res}} \ge 6.5 \text{ and } (\text{Order Value} \text{ or } \frac{\text{Order}}{\text{Rev}} \text{ exists})) \\
-\mathbf{Tier\ C} \quad (\text{Discard / Reject}) & \text{otherwise (fails materiality threshold)}
+\mathbf{Tier\ A} \quad (\text{Must Consider / High Conviction}) & \text{if } S_{\text{res}} \ge 8.2 \text{ OR meets Tier A Specific Rule} \\
+\mathbf{Tier\ B} \quad (\text{Substantive Secondary}) & \text{if } S_{\text{res}} \ge 6.0 \text{ OR } (S_{\text{res}} \ge 5.5 \text{ and } (\text{Order Value} \text{ or } \frac{\text{Order}}{\text{Rev}} \text{ exists})) \\
+\mathbf{Tier\ C} \quad (\text{Low Materiality}) & \text{otherwise}
 \end{cases}$$
 
 #### Tier A Specific Deterministic Override Rules:
@@ -508,76 +513,115 @@ $$\text{Primary Source Bonus} = 20.0 \text{ (if NSE/BSE filing)}, \quad \text{Mu
 
 ---
 
-## 7. Complete Stock Selection & Ranking Workflow
+### 6.7 Model 7: Actionability & Directionality Assessment (`engine/candidate_engine.py`)
 
-Here is the exact step-by-step decision path through which a stock is identified, evaluated, and selected:
+Actionable does **not** mean price movement, sensational headlines, large numbers, or predefined brand names.  
+Actionable means the event provides a **credible, sufficiently material fundamental development that could reasonably matter to an investor or analyst monitoring the stock**.
+
+$$\text{Candidate Actionable} = \begin{cases}
+\text{True} & \text{if Direction} \in \{\text{Positive, Negative}\} \land (\text{Tier A} \lor S_{\text{res}} \ge 8.0) \\
+\text{True} & \text{if Direction} \in \{\text{Positive, Negative}\} \land (S_{\text{res}} \ge 6.0 \lor \text{Tier B}) \land \text{Event Type} \in \mathcal{A} \\
+\text{True} & \text{if Direction} \in \{\text{Positive, Negative}\} \land (S_{\text{res}} \ge 5.5 \land \text{Quantified Financial Impact}) \\
+\text{False} & \text{otherwise (Rejected as non-actionable or ambiguous)}
+\end{cases}$$
+
+Where the recognized actionable catalyst set $\mathcal{A}$ comprises:
+$$\mathcal{A} = \left\{ \begin{array}{l}
+\text{ORDER\_CONTRACT}, \; \text{CAPACITY\_EXPANSION}, \; \text{ACQUISITION}, \; \text{STRATEGIC\_DEAL}, \\
+\text{PRODUCT\_APPROVAL}, \; \text{REGULATORY\_EVENT}, \; \text{OPERATING\_UPDATE}, \; \text{GOVERNMENT\_EVENT}, \\
+\text{COMMODITY\_EVENT}, \; \text{FUNDING\_EQUITY}, \; \text{FUNDING\_DEBT\_EVENT}, \; \text{MANAGEMENT\_EVENT}, \\
+\text{PRICING\_EVENT}, \; \text{CUSTOMER\_EVENT}, \; \text{FINANCIAL\_RESULT}
+\end{array} \right\}$$
+
+#### Strict Binary Directionality Requirement:
+- If an event is ambiguous or has mixed directional implications, it is strictly **rejected**.
+- Final published classification must only be **`Positive`** or **`Negative`**.
+- Zero Neutral, Zero Mixed, and Zero Ambiguous events are permitted in the final report.
+
+---
+
+## 7. Complete Stock Selection & Dynamic Ranking Workflow
+
+The engine follows an open, merit-based candidate funnel optimizing for **actionability and fundamental importance** rather than an arbitrary fixed count:
 
 ```
-                  RAW DISCLOSURE FEED (Exchange Announcements / News)
-                                          │
-                                          ▼
-                                [ 1. NOISE FILTER ]
-                                Routine filing? Stale? Broker call? Pure rally?
-                                  ├── YES ──► DISCARD
-                                  └── NO  ──► PROCEED
-                                          │
-                                          ▼
-                             [ 2. ENTITY RESOLUTION ]
-                             Match listed company symbol & verify economic role.
-                             Is entity the genuine economic beneficiary?
-                                  ├── NO  ──► DISCARD
-                                  └── YES ──► PROCEED
-                                          │
-                                          ▼
-                             [ 3. EVENT DEDUPLICATION ]
-                             Group identical multi-source stories into canonical cluster.
-                                          │
-                                          ▼
-                           [ 4. FINANCIAL QUANTIFICATION ]
-                           Extract ₹ Cr, %, capex, PAT, or range.
-                           Compute metric / annual revenue (%).
-                                          │
-                                          ▼
-                             [ 5. SYNTHESIS & DIRECTION ]
-                             Synthesize Sharekhan-style commentary.
-                             Is direction strictly POSITIVE or NEGATIVE?
-                                  ├── NO  ──► DISCARD
-                                  └── YES ──► PROCEED
-                                          │
-                                          ▼
-                           [ 6. TWO-PASS VALIDATION GATE ]
-                           Pass 1: Source facts fidelity check.
-                           Pass 2: Analytical consistency & boilerplate check.
-                                  ├── FAIL ─► DISCARD
-                                  └── PASS ─► PROCEED
-                                          │
-                                          ▼
-                        [ 7. 10-FACTOR IMPORTANCE SCORING ]
-                        Compute RESEARCH_IMPORTANCE_SCORE (0-10).
-                        Assign Materiality Tier: Tier A, Tier B, or Tier C.
-                                  ├── Tier C ─► DISCARD
-                                  └── Tier A / Tier B ─► PROCEED
-                                          │
-                                          ▼
-                      [ 8. COMPANY DEDUPLICATION & SELECTION ]
-                      Keep single highest-scoring event per listed company symbol.
-                                          │
-                                          ▼
-                        [ 9. RELATIVE MERIT-BASED RANKING ]
-                        1. Prioritize all Tier A candidates sorted by score descending.
-                        2. Fill remaining capacity up to max_items with strongest Tier B.
-                                          │
-                                          ▼
-                         FINAL SELECTED "TOP NEWS" BULLETIN
+                  RAW DISCLOSURE FEED (Exchange Announcements / Financial Press)
+                                           │
+                                           ▼
+                                 [ 1. BASIC NOISE FILTER ]
+                                 Remove routine compliance, stale news, administrative filings.
+                                 Preserve all potentially important corporate developments.
+                                           │
+                                           ▼
+                              [ 2. ENTITY & ROLE VALIDATION ]
+                              Resolve listed entity (.NS / .BO) and verify economic role
+                              (Contractor/Issuer vs Awarding Customer/Authority).
+                                           │
+                                           ▼
+                              [ 3. CANONICAL EVENT CLUSTERING ]
+                              Group multi-source disclosures into distinct canonical clusters.
+                                           │
+                                           ▼
+                      [ 4. BROAD FUNDAMENTAL CANDIDATE EVALUATION ]
+                      Synthesize event intelligence for ALL canonical events.
+                      Strict Directionality Check: Positive or Negative only.
+                      Score with 10-Factor Research Model & assign Materiality Tiers.
+                      (No premature dropping of Tier C prior to evaluation).
+                                           │
+                                           ▼
+                         [ 5. ACTIONABILITY & MATERIALITY ASSESSMENT ]
+                         Identify genuine operational catalysts via Model 7.
+                         Separate primary actionable candidates from secondary pool.
+                                           │
+                                           ▼
+                     [ 6. DYNAMIC CANDIDATE RANKING (MIN TARGET 4–5) ]
+                     - Show ALL genuinely actionable stocks (e.g. 5, 8, 12, 15).
+                     - If actionable < 4: Evaluate qualified secondary candidates
+                       without injecting weak noise (Quality beats Minimum).
+                     - Never artificially cut down to 5.
+                                           │
+                                           ▼
+                     [ 7. CLOSING PRICE RETRIEVAL & ASCENDING SORT ]
+                     - Retrieve date-specific closing prices on or before requested date.
+                     - Omit unlisted entities (DRHPs / pre-IPO filings).
+                     - Sort ascending: LOWEST CLOSING PRICE -> HIGHEST CLOSING PRICE.
+                     - Zero influence of stock price on fundamental selection.
+                                           │
+                                           ▼
+                         [ 8. FINAL ACTIONABLE "TOP NEWS" BULLETIN ]
+                         Display 7-stage diagnostics & publish Sharekhan-style report.
 ```
 
-### 7.1 Two-Phase Selection Execution:
-1. **Phase 1: Tier A Priority (Highest Analytical Merit)**:
-   - All surviving Tier A candidates are selected first, sorted in descending order of `RESEARCH_IMPORTANCE_SCORE`.
-2. **Phase 2: Tier B Allocation (Score-Ranked Secondary)**:
-   - If the selected count is less than `max_items` (default 15), the highest-scoring Tier B candidates are added until capacity is filled.
-3. **No Forced Balancing**:
-   - The selection is strictly evidence-driven. There are no artificial quotas or forced sector diversification—if 8 defense orders win on merit, all 8 are presented based on verifiable score ranking.
+### 7.1 Dynamic Stock Count & Minimum Target Principles:
+1. **No Fixed Cap**:
+   - The final FNA does NOT have a hardcoded number such as exactly 3 or exactly 5 stocks.
+   - If 5 genuinely actionable stocks exist $\rightarrow$ show all 5.
+   - If 8 genuinely actionable stocks exist $\rightarrow$ show all 8.
+   - If 12 or 15 genuinely actionable stocks exist $\rightarrow$ show all 12 or 15 without artificially truncating the list.
+2. **Minimum Target of 4–5 Stocks**:
+   - The engine uses 4–5 stocks as a minimum target, not as a hard limit.
+   - If only 2 actionable stocks exist initially, the engine evaluates qualified secondary candidates (Tier B with verified commercial categories) to supplement up to 4.
+   - **Quality Beats Minimum**: If only 2 or 3 genuinely actionable stocks exist after evaluating the pool, the engine outputs 2 or 3 rather than inventing weak or irrelevant stories simply to reach 5.
+
+### 7.2 Closing Price Ascending Sorting (`engine/fna_pipeline.py`):
+Once the final actionable stock set has been determined strictly on fundamental merit:
+1. Fetch the closing price for each selected stock for the requested date (or latest prior trading session).
+2. Omit entities that lack traded market prices (e.g., draft prospectus filings, unlisted subsidiaries).
+3. Sort the final list strictly from:
+   $$\mathbf{LOWEST\ CLOSING\ PRICE} \longrightarrow \mathbf{HIGHEST\ CLOSING\ PRICE}$$
+
+Example Output:
+```text
+1. Orient Green Power Company Ltd (GREENPOWER) — ₹9.03 — Positive
+2. NBCC India Ltd (NBCC) — ₹81.20 — Positive
+3. Godavari Biorefineries Limited (GODAVARIB) — ₹242.83 — Positive
+4. Praj Industries Limited (PRAJIND) — ₹313.95 — Positive
+5. Exide Industries Ltd (EXIDEIND) — ₹417.90 — Positive
+6. ACME Solar Holdings Ltd (ACMESOLAR) — ₹422.80 — Positive
+7. Bharat Forge Ltd (BHARATFORG) — ₹1,875.20 — Positive
+8. Solar Industries India Ltd (SOLARINDS) — ₹18,905 — Negative
+```
+*Closing price has zero influence on fundamental actionability or ranking.*
 
 ---
 
@@ -608,7 +652,11 @@ When a major corporate event occurs, the engine maps peer implications:
 | :--- | :--- | :---: | :--- |
 | **Relative Order Sizing** | $\text{Ratio} = \left(\frac{\text{Order (₹ Cr)}}{\text{Annual Revenue (₹ Cr)}}\right) \times 100$ | $0\% - \infty$ | $\ge 20\%$ Transformational, $\ge 8\%$ Substantial, $\ge 2.5\%$ Meaningful |
 | **Volume Ratio ($V_R$)** | $V_R = \frac{\text{Volume}_{\text{today}}}{\text{SMA}_{20}(\text{Volume})}$ | $0.0 - \infty$ | $V_R \ge 2.0\text{x}$ signals institutional volume accumulation |
-| **10-Factor Research Score** | $S_{\text{res}} = \sum_{i=1}^{10} w_i \cdot F_i$ | $0.0 - 10.0$ | $\ge 8.2 \rightarrow \text{Tier A}$, $\ge 6.8 \rightarrow \text{Tier B}$, $< 6.8 \rightarrow \text{Tier C}$ |
+| **10-Factor Research Score** | $S_{\text{res}} = \sum_{i=1}^{10} w_i \cdot F_i$ | $0.0 - 10.0$ | Composite score evaluating fundamental research importance |
+| **Materiality Tiers** | $\text{Tier A} \iff S_{\text{res}} \ge 8.2 \lor \text{Override}; \; \text{Tier B} \iff S_{\text{res}} \ge 6.0 \lor (S_{\text{res}} \ge 5.5 \land \text{Metric})$ | Categorical | Tier A (High Conviction), Tier B (Substantive), Tier C (Low Materiality) |
+| **Actionability Filter** | $\text{Actionable} \iff \text{Direction} \in \{\text{Pos}, \text{Neg}\} \land (S_{\text{res}} \ge 6.0 \lor \text{Tier B}) \land \text{Type} \in \mathcal{A}$ | Boolean | Only verified operational catalysts with confirmed direction qualify |
+| **Dynamic Stock Selection** | $\text{Count} = \max(\min(\text{Actionable}, \text{Ceiling}), \text{MinTarget})$ subject to quality | Variable ($3-15$) | 4–5 min target; shows all actionable stocks without artificial 5-item cap |
+| **Closing Price Sorting** | $\text{Sorted} = \text{OrderBy}(\text{SelectedStocks}, \; \text{key}=\text{ClosingPrice})$ | Ascending (₹) | Lowest closing price to highest closing price; zero selection influence |
 | **Priced-In Score** | $S_{\text{priced\_in}} = \min(10.0, \max(0.0, 4.0 + \Delta_{\text{price}} + \Delta_{\text{val}} + \Delta_{\text{vol}}))$ | $0.0 - 10.0$ | $\le 3.0$ Fresh surprise, $\ge 6.6$ Sell-on-news risk |
 | **Fundamental Impact** | $I_{\text{fund}} = 0.25 I_{\text{rev}} + 0.25 I_{\text{prof}} + 0.20 I_{\text{margin}} + 0.15 I_{\text{cf}} + 0.15 I_{\text{strat}}$ | $0.0 - 10.0$ | Comprehensive 5-dimension fundamental business impact |
 | **Preliminary Score** | $S_{\text{prelim}} = \sum_{j=1}^{8} w_j \cdot C_j$ | $0.0 - 100.0$ | $\ge 58.0$ qualifies stock for deep quantitative dive |
@@ -618,11 +666,30 @@ When a major corporate event occurs, the engine maps peer implications:
 
 ---
 
-## 10. Summary & Verification
+## 10. Transparent 7-Stage Diagnostic Funnel & Verification
 
-The Indian Stock Market Intelligence Engine provides an institutional, zero-hallucination research pipeline:
-1. **Raw feeds** are filtered for routine compliance noise.
-2. **Entities and economic roles** are verified.
-3. **Disclosures** are semantically quantified against corporate baselines.
-4. **Candidates** are scored via the **10-Factor Research Importance Model** and assigned **Materiality Tiers**.
-5. **Selection** prioritizes Tier A candidates and ranks by evidence-driven score, delivering the final **Top News Fundamental Intelligence Bulletin**.
+Every execution of the FNA engine prints full diagnostic metrics across the candidate pipeline:
+
+```text
+============================================================
+        RESEARCH EXECUTION DIAGNOSTICS
+============================================================
+Requested Research Date: YYYY-MM-DD (Cutoff: HH:MM:SS IST)
+Candidates Retrieved: [N_1]
+Surviving Initial Materiality: [N_2]
+Validated Entities: [N_3]
+Canonical Events: [N_4]
+Fundamental Candidates Evaluated: [N_5]
+Actionable Candidates: [N_6]
+Final TOP NEWS: [N_7]
+============================================================
+```
+
+### Funnel Stage Definitions:
+1. **Candidates Retrieved**: Total raw developments ingested from exchange feeds (NSE/BSE) and 8+ financial press sources for the target date.
+2. **Surviving Initial Materiality**: Developments passing the early basic noise filter (administrative and routine compliance disclosures removed).
+3. **Validated Entities**: Events successfully resolved to a listed NSE/BSE corporate entity and verified as the genuine economic beneficiary.
+4. **Canonical Events**: Multi-source duplicates clustered into unique corporate developments via token-similarity deduplication.
+5. **Fundamental Candidates Evaluated**: Canonical candidates passing two-pass consistency validation, synthesized, and scored via the 10-Factor Research Model.
+6. **Actionable Candidates**: Candidates meeting Model 7 criteria with verified directional fundamental catalysts (`Positive` or `Negative` only).
+7. **Final TOP NEWS**: Final traded stocks selected by dynamic ranking, validated for traded closing prices, and sorted ascending from lowest to highest closing price.

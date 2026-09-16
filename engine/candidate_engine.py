@@ -157,17 +157,53 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
     elif ev_type in ["COMMODITY_EVENT", "MANAGEMENT_EVENT", "PRODUCT_APPROVAL"]:
         investor_rel = 8.5
 
-    # 10. Quantifiability (0-10)
+    # 10. Specificity & Quantifiability (0-10)
+    # Currency amounts: ₹, Rs, Cr, crore, lakh, USD, $
+    has_currency = bool(re.search(r"(?:₹\s*[\d,]+(?:\.\d+)?|\brs\.?\s*[\d,]+(?:\.\d+)?|\b[\d,]+(?:\.\d+)?\s*(?:cr|crore|lakh)s?\b|[\$€£]\s*[\d,]+|\busd\b)", full_text))
+    # Percentages: %, percent, percentage
+    has_percentage = bool(re.search(r"\b\d+(?:\.\d+)?\s*%|\bpercent(?:age)?\b", full_text))
+    # Physical capacity & volume units: MW, GW, tonnes, MTPA, barrels, bbl, km, sq ft
+    has_physical_units = bool(re.search(r"\b\d+(?:\.\d+)?\s*(?:mw|gw|kw|tonnes?|mtpa|tpd|bbl|barrels?|km|sq\.?\s*ft|units?)\b", full_text))
+    # Hard binary outcomes: order won/lost/awarded, approval granted/denied, deal signed/terminated
+    has_binary_outcome = bool(re.search(
+        r"\b(?:bags?|secured?|wins?|won|awarded|receives?|received)\b.{0,60}\b(?:orders?|contracts?|mandates?|tenders?|projects?|work)\b|"
+        r"\b(?:approval|clearance|licen[sc]e|patent)\b.{0,60}\b(?:granted|approved|received|cleared|denied|rejected)\b|"
+        r"\b(?:granted|approved|received|cleared|denied|rejected)\b.{0,60}\b(?:approval|clearance|licen[sc]e|patent)\b|"
+        r"\b(?:usfda|fda|dci|cci|rbi|sebi)\b.{0,60}\b(?:approves?|clears?|penalizes?|issues?\s+\d+\s+observations?)\b|"
+        r"\b(?:signs?|signed|inks?|inked|entered\s+into)\b.{0,60}\b(?:pact|agreement|contract|deal|partnership|mou)\b|"
+        r"\b(?:terminated?|cancell?ed?|scrapped|revoked|delisted|auditor\s+resigned)\b",
+        full_text
+    ))
+
+    is_purely_qualitative = not (has_currency or has_percentage or has_physical_units or has_binary_outcome or order_val or pct_rev)
+
     if order_val and pct_rev:
         quantifiability = 10.0
-    elif order_val or range_text:
+    elif (order_val or range_text or has_currency) and (has_percentage or has_physical_units or has_binary_outcome):
+        quantifiability = 9.5
+    elif has_currency or order_val or range_text:
         quantifiability = 9.0
-    elif any(w in full_text for w in ["%", "mw", "tonnes", "bbl", "crore", "cr"]):
+    elif has_percentage or has_physical_units:
+        quantifiability = 8.5
+    elif has_binary_outcome:
         quantifiability = 8.0
     elif is_very_brief:
-        quantifiability = 3.5
+        quantifiability = 3.0
+    elif is_purely_qualitative:
+        quantifiability = 2.5
     else:
-        quantifiability = 5.5
+        quantifiability = 5.0
+
+    # Specificity delta on composite score:
+    # Rewards concrete numbers / hard binary outcomes (+0.25 to +0.4)
+    # Deprioritizes vague qualitative text lacking numbers or verified outcomes (-0.75)
+    specificity_delta = 0.0
+    if (has_currency or has_physical_units or order_val) and has_binary_outcome:
+        specificity_delta = 0.4
+    elif has_currency or has_physical_units or order_val or pct_rev:
+        specificity_delta = 0.25
+    elif is_purely_qualitative:
+        specificity_delta = -0.75
 
     # Composite weighted RESEARCH_IMPORTANCE_SCORE
     composite_score = (
@@ -182,6 +218,7 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
         novelty * 0.03 +
         freshness * 0.02
     )
+    composite_score = min(10.0, max(1.0, composite_score + specificity_delta))
 
     final_score = round(composite_score, 2)
     return {
@@ -195,6 +232,9 @@ def compute_research_importance_model(item: Dict[str, Any], facts: Optional[Dict
         "novelty": round(novelty, 2),
         "investor_relevance": round(investor_rel, 2),
         "quantifiability": round(quantifiability, 2),
+        "has_concrete_numbers": bool(has_currency or has_percentage or has_physical_units),
+        "has_binary_outcome": bool(has_binary_outcome),
+        "is_purely_qualitative": bool(is_purely_qualitative),
         "research_importance_score": final_score,
         "total_score": final_score
     }
@@ -244,15 +284,25 @@ def is_genuinely_actionable_candidate(cand: Dict[str, Any]) -> Tuple[bool, str]:
     that could reasonably matter to an investor or analyst monitoring the stock.
     Returns (is_actionable: bool, reason: str).
     """
+    cand_type = cand.get("candidate_type")
+    scores = cand.get("research_scores", {})
+    total_score = scores.get("total_score", cand.get("research_importance_score", 0.0))
+
+    # Multi-company policy and macro items
+    if cand_type in ["POLICY_EVENT", "MACRO_EVENT"]:
+        return True, f"Actionable {cand_type} with sector-wide fundamental impact (Score: {total_score})."
+
     direction = cand.get("fundamental_direction")
     if direction not in ["Positive", "Negative"]:
         return False, f"Direction '{direction}' is ambiguous or non-directional."
 
-    scores = cand.get("research_scores", {})
-    total_score = scores.get("total_score", cand.get("research_importance_score", 0.0))
     tier = cand.get("tier", "Tier C")
     ev_type = cand.get("event_type", "OTHER_MATERIAL")
     
+    # Reject purely qualitative items with weak scores
+    if scores.get("is_purely_qualitative") and total_score < 6.5:
+        return False, f"Disqualified: purely qualitative announcement lacking quantified metrics or concrete outcome (Score: {total_score})."
+
     # Tier A: High-conviction fundamental development
     if tier == "Tier A" or total_score >= 8.0:
         return True, f"Tier A high-conviction fundamental development (Score: {total_score})."
@@ -271,7 +321,7 @@ def is_genuinely_actionable_candidate(cand: Dict[str, Any]) -> Tuple[bool, str]:
         if ev_type in actionable_types:
             return True, f"Actionable {ev_type} catalyst with confirmed economic impact (Score: {total_score})."
         
-        if cand.get("order_value_cr") or cand.get("relative_revenue_pct") or cand.get("range_text"):
+        if cand.get("order_value_cr") or cand.get("relative_revenue_pct") or cand.get("range_text") or scores.get("has_concrete_numbers"):
             return True, f"Quantified fundamental financial impact (Score: {total_score})."
 
     # Secondary evaluation for candidates with score >= 5.5 in recognized categories
@@ -279,6 +329,16 @@ def is_genuinely_actionable_candidate(cand: Dict[str, Any]) -> Tuple[bool, str]:
         return True, f"Secondary actionable {ev_type} development (Score: {total_score})."
 
     return False, f"Score {total_score} below actionability threshold."
+
+
+def normalize_company_key(name: str, symbol: str = "") -> str:
+    """Normalizes company name or symbol to prevent duplicate listings under different suffixes."""
+    s = str(name or symbol or "").strip().lower()
+    s = re.sub(r"\.(ns|bo|bse)$", "", s)
+    s = re.sub(r"\b(limited|ltd|pvt|private|corporation|corp|inc|co)\b", "", s)
+    s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s or str(symbol or "").strip().lower()
 
 
 def rank_daily_research_candidates(
@@ -315,7 +375,7 @@ def rank_daily_research_candidates(
     deduped_candidates: List[Dict[str, Any]] = []
     seen_companies = set()
     for c in valid:
-        c_key = (c.get("company_name") or c.get("symbol", "")).strip().lower()
+        c_key = normalize_company_key(c.get("company_name", ""), c.get("symbol", ""))
         if c_key not in seen_companies:
             seen_companies.add(c_key)
             deduped_candidates.append(c)

@@ -18,6 +18,7 @@ from engine.nse_bse_client import get_all_exchange_announcements, get_historical
 from engine.news_collector import collect_market_news, collect_historical_market_news
 from engine.noise_filter import is_material_fundamental_event
 from engine.entity_mapper import resolve_entity_from_text, validate_event_entity
+from engine.policy_macro_engine import detect_policy_event, detect_macro_item
 from engine.deduplicator import deduplicate_and_cluster_news
 from engine.fna_analyzer import synthesize_fna_item
 from engine.db import save_fna_event, save_fna_report, get_connection
@@ -27,7 +28,8 @@ from engine.candidate_engine import (
     map_event_to_discovery_bucket,
     rank_daily_research_candidates,
     is_genuinely_actionable_candidate,
-    format_candidate_debug_log
+    format_candidate_debug_log,
+    normalize_company_key
 )
 
 logger = logging.getLogger(__name__)
@@ -339,6 +341,21 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
         entity_meta, res_reason = resolve_entity_from_text(full_text, filing_symbol=ev.get("filing_symbol"))
 
         if not entity_meta:
+            # Check for multi-company policy event or standalone macro trigger
+            pol_item = detect_policy_event(ev)
+            if pol_item:
+                resolved_events.append(pol_item)
+                if debug:
+                    print(f"[RESOLVED POLICY EVENT] '{ev['title'][:60]}' -> Sector: {pol_item.get('sector')}")
+                continue
+            
+            macro_item = detect_macro_item(ev)
+            if macro_item:
+                resolved_events.append(macro_item)
+                if debug:
+                    print(f"[RESOLVED MACRO ITEM] '{ev['title'][:60]}' -> Sector: {macro_item.get('sector')}")
+                continue
+
             if debug:
                 print(f"[REJECT UNRESOLVED] '{ev['title'][:60]}' — {res_reason}")
                 logger.debug(f"Entity Unresolved: '{ev['title']}' — {res_reason}")
@@ -388,6 +405,14 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
     seen_companies = {}
 
     for cluster in clusters:
+        cand_type = cluster.get("candidate_type")
+        # Direct pass-through for already synthesized Policy and Macro intelligence entries
+        if cand_type in ["POLICY_EVENT", "MACRO_EVENT"]:
+            cluster["tier"] = cluster.get("tier", "Tier A")
+            evaluated_candidates.append(cluster)
+            save_fna_event(cluster)
+            continue
+
         sym = cluster.get("symbol")
         if not sym:
             continue
@@ -416,7 +441,7 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
         tier = assign_materiality_tier(item, score_dict["total_score"])
         item["tier"] = tier
 
-        company_key = (item.get("company_name") or item.get("symbol") or sym).strip().lower()
+        company_key = normalize_company_key(item.get("company_name", ""), item.get("symbol", sym))
 
         # Retain highest importance candidate per company in the evaluated pool
         if company_key in seen_companies:
@@ -450,28 +475,50 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
     )
 
     from engine.candidate_scanner import get_closing_price_for_date
-    print(f"[INFO] Fetching closing prices for candidates on {iso_date}...")
+    print(f"[INFO] Fetching closing prices for candidates on {iso_date} (best-effort)...")
     valid_listed_news = []
     seen_selected_companies = set()
     for it in ranked_pool:
-        comp_key = (it.get("company_name") or it.get("symbol", "")).strip().lower()
+        comp_key = normalize_company_key(it.get("company_name", ""), it.get("symbol", ""))
         if comp_key in seen_selected_companies:
             continue
+
         sym = it.get("symbol", "")
-        close_p = get_closing_price_for_date(sym, target_date=iso_date)
+        close_p = None
+        if sym and not sym.startswith(("SECTOR:", "MACRO:")):
+            try:
+                close_p = get_closing_price_for_date(sym, target_date=iso_date)
+            except Exception as e:
+                logger.debug(f"Price lookup skipped for {sym}: {e}")
+
+        # Best-effort price attachment — NEVER omit candidate on lookup failure
         if close_p is not None and close_p > 0:
             it["closing_price"] = close_p
-            valid_listed_news.append(it)
-            seen_selected_companies.add(comp_key)
-            if max_items is not None and len(valid_listed_news) >= max_items:
-                break
         else:
-            logger.info(f"Omitted candidate {sym} ({it.get('company_name')}): unlisted or no valid closing price on {iso_date}.")
+            it["closing_price"] = None
+            logger.info(f"Candidate {sym} ({it.get('company_name')}): retained without price.")
+
+        valid_listed_news.append(it)
+        seen_selected_companies.add(comp_key)
+        if max_items is not None and len(valid_listed_news) >= max_items:
+            break
 
     top_news = valid_listed_news
 
-    # Sort final selected stocks strictly by LOWEST CLOSING PRICE -> HIGHEST CLOSING PRICE
-    top_news.sort(key=lambda x: x["closing_price"])
+    # Sort final selected stocks:
+    # 1. Standalone Policy & Macro entries (ordered by score descending)
+    # 2. Company entries with valid closing price (ordered ascending by price)
+    # 3. Company entries without closing price (ordered by score descending)
+    def top_news_sort_key(x):
+        p = x.get("closing_price")
+        sc = float(x.get("research_importance_score", 0.0) or 0.0)
+        if x.get("candidate_type") in ["POLICY_EVENT", "MACRO_EVENT"]:
+            return (0, 0.0, -sc)
+        if p is not None and p > 0:
+            return (1, float(p), -sc)
+        return (2, 0.0, -sc)
+
+    top_news.sort(key=top_news_sort_key)
 
     # Log candidate selection decisions in debug mode
     if debug:
@@ -545,6 +592,41 @@ def format_top_news_report(report_date_str: str, items: List[Dict[str, Any]]) ->
         lines.append("")
     else:
         for i, item in enumerate(items, start=1):
+            cand_type = item.get("candidate_type")
+            if cand_type == "POLICY_EVENT":
+                clean_headline = re.sub(r"[\r\n]+", " ", str(item.get("headline", ""))).strip()
+                summary = re.sub(r"[\r\n]+", " ", str(item.get("what_happened", ""))).strip()
+                sources = re.sub(r"[\r\n]+", " ", str(item.get("sources", ""))).strip()
+                beneficiaries = item.get("key_beneficiaries", [])
+
+                lines.append(f"{i}. [POLICY & REGULATORY] {clean_headline}")
+                lines.append(f"   {summary}")
+                lines.append("")
+                lines.append("   Key Beneficiaries / Impacted:")
+                for b in beneficiaries:
+                    b_sym = b.get("symbol", "")
+                    b_name = b.get("name", "")
+                    b_imp = b.get("impact", "")
+                    lines.append(f"   • {b_sym} ({b_name}) — {b_imp}")
+                lines.append("")
+                lines.append("   Sources:")
+                lines.append(f"   {sources}")
+                lines.append("")
+                lines.append("-" * 60)
+                lines.append("")
+                continue
+
+            elif cand_type == "MACRO_EVENT":
+                macro_text = item.get("macro_one_liner") or f"{item.get('headline')} — {item.get('fundamental_direction')} for {item.get('affected_sector')}"
+                sources = re.sub(r"[\r\n]+", " ", str(item.get("sources", ""))).strip()
+                lines.append(f"{i}. [MACRO CONTEXT] {macro_text}")
+                lines.append("   Sources:")
+                lines.append(f"   {sources}")
+                lines.append("")
+                lines.append("-" * 60)
+                lines.append("")
+                continue
+
             clean_ticker = item.get("symbol", "").replace(".NS", "").replace(".BO", "")
             price = item.get("closing_price")
             if price is not None and isinstance(price, (int, float)) and price > 0:

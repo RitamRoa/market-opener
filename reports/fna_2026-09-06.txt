@@ -29,7 +29,30 @@ TOP NEWS
 
 ------------------------------------------------------------
 
-2. Neogen Chemicals Limited (NEOGEN) — ₹2,137.90 — Negative
+2. VA Tech Wabag Ltd (WABAG) — ₹2,005.30 — Positive
+   Secured ₹100-250 crore order from Reliance Industries
+
+   What happened:
+   VA Tech Wabag Ltd has announced: VA Tech Wabag secured ₹100-250 crore order from Reliance Industries; shares rise 3%
+
+   Why it matters:
+   Securing this contract inflow of ₹250.0 Cr (~6.1% of annual revenue) adds to VA Tech Wabag Ltd's executable order book and project backlog, solidifying operational delivery schedules and forward revenue visibility.
+
+   Fundamental impact:
+   Positive — expands project backlog and enhances forward revenue visibility.
+
+   Key financial implication:
+   Contract inflow of ₹250.0 Cr (~6.1% of annual revenue) adds to project backlog; execution margins govern earnings conversion.
+
+   Time horizon:
+   Medium Term
+
+   Sources:
+   Upstox
+
+------------------------------------------------------------
+
+3. Neogen Chemicals Limited (NEOGEN) — ₹2,137.90 — Negative
    Action(s) taken or orders passed
 
    What happened:
@@ -49,6 +72,29 @@ TOP NEWS
 
    Sources:
    NSE Corporate Announcement
+
+------------------------------------------------------------
+
+4. LGT Global Hospitality Ltd (544489) — Positive
+   LGT Global Hospitality Ltd - 544489 - Announcement under Regulation 30 (LODR)-Acquisition
+
+   What happened:
+   LGT Global Hospitality Ltd has announced: Acquisition of Majority stake in a company
+
+   Why it matters:
+   Infusing funds into target hospital assets expands LGT Global Hospitality Ltd's healthcare delivery network and operational bed capacity, strengthening its clinical presence in target regional healthcare markets.
+
+   Fundamental impact:
+   Positive — expands healthcare delivery footprint and operational clinical bed capacity.
+
+   Key financial implication:
+   Operational revenue and bed occupancy from the acquired healthcare facility will consolidate post transaction closing.
+
+   Time horizon:
+   Long Term
+
+   Sources:
+   NSE Corporate Announcement | BSE Filing
 
 ------------------------------------------------------------
 
