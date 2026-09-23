@@ -264,6 +264,29 @@ INDIAN_EQUITIES = [
         "exclusions": []
     },
 
+    # Aviation, Energy Infrastructure & Logistics
+    {
+        "symbol": "INDIGO.NS",
+        "name": "InterGlobe Aviation Ltd",
+        "sector": "Aviation / Airlines",
+        "aliases": ["indigo", "interglobe aviation", "interglobe", "indigo airlines"],
+        "exclusions": ["paints"]
+    },
+    {
+        "symbol": "PETRONET.NS",
+        "name": "Petronet LNG Ltd",
+        "sector": "Oil & Gas / LNG Infrastructure",
+        "aliases": ["petronet lng", "petronet", "petronet lng ltd"],
+        "exclusions": []
+    },
+    {
+        "symbol": "SKYWAYS.NS",
+        "name": "Skyways Air Services Limited",
+        "sector": "Aviation & Logistics",
+        "aliases": ["skyways air services", "skyways air", "skyways air services limited", "skyways"],
+        "exclusions": []
+    },
+
     # Key Railways, Defense, Infrastructure & PSUs
     {
         "symbol": "RVNL.NS",
@@ -304,7 +327,28 @@ INDIAN_EQUITIES = [
         "symbol": "MAZDOCK.NS",
         "name": "Mazagon Dock Shipbuilders Ltd",
         "sector": "Shipbuilding & Defense",
-        "aliases": ["mazagon dock", "mazdock"],
+        "aliases": ["mazagon dock", "mazagaon dock", "mazagon dock shipbuilders", "mazagaon dock shipbuilders", "mazdock"],
+        "exclusions": []
+    },
+    {
+        "symbol": "KRSNAA.NS",
+        "name": "Krsnaa Diagnostics Ltd",
+        "sector": "Healthcare & Diagnostics",
+        "aliases": ["krsnaa diagnostics", "krsnaa diagnostics ltd", "krsnaa diagnostics limited", "krsnaa"],
+        "exclusions": []
+    },
+    {
+        "symbol": "MRPL.NS",
+        "name": "Mangalore Refinery and Petrochemicals Ltd",
+        "sector": "Oil Refining & Marketing",
+        "aliases": ["mrpl", "mangalore refinery", "mangalore refinery and petrochemicals", "mangalore refinery & petrochemicals"],
+        "exclusions": []
+    },
+    {
+        "symbol": "HIGHWAYS.BO",
+        "name": "Highway Infrastructure Trust",
+        "sector": "Roads & Highways Infrastructure",
+        "aliases": ["highway infrastructure", "highway infrastructure trust", "highway infra", "upeida toll", "highway infrastructure ltd"],
         "exclusions": []
     },
     {
@@ -426,6 +470,34 @@ INDIAN_EQUITIES = [
         "name": "Tech Mahindra Ltd",
         "sector": "Information Technology",
         "aliases": ["tech mahindra", "techm"],
+        "exclusions": ["semiconductor", "kaynes", "syrma", "moschip"]
+    },
+    {
+        "symbol": "MAZDOCK.NS",
+        "name": "Mazagon Dock Shipbuilders Ltd",
+        "sector": "Defence & Shipbuilding",
+        "aliases": ["mazagon dock shipbuilders", "mazagon dock shipbuilders ltd", "mazagon dock", "mazdock", "mdl"],
+        "exclusions": []
+    },
+    {
+        "symbol": "KAYNES.NS",
+        "name": "Kaynes Technology India Ltd",
+        "sector": "Electronics Manufacturing / Semiconductor",
+        "aliases": ["kaynes technology india", "kaynes technology", "kaynes"],
+        "exclusions": []
+    },
+    {
+        "symbol": "SYRMA.NS",
+        "name": "Syrma SGS Technology Ltd",
+        "sector": "Electronics Manufacturing / Semiconductor",
+        "aliases": ["syrma sgs technology", "syrma sgs", "syrma"],
+        "exclusions": []
+    },
+    {
+        "symbol": "MOSCHIP.NS",
+        "name": "MosChip Technologies Ltd",
+        "sector": "Semiconductor Design & Embedded Systems",
+        "aliases": ["moschip technologies", "moschip"],
         "exclusions": []
     },
     {
@@ -792,6 +864,55 @@ INDIAN_EQUITIES = [
         "name": "Prestige Estates Projects Ltd",
         "sector": "Real Estate Development",
         "aliases": ["prestige estates", "prestige group"],
+        "exclusions": []
+    },
+    {
+        "symbol": "GRINFRA.NS",
+        "name": "G R Infraprojects Ltd",
+        "sector": "Highways & Infrastructure EPC",
+        "aliases": ["gr infraprojects", "gr infra", "g r infraprojects", "grinfra"],
+        "exclusions": []
+    },
+    {
+        "symbol": "WELCORP.NS",
+        "name": "Welspun Corp Ltd",
+        "sector": "Steel Pipes & Infrastructure",
+        "aliases": ["welspun corp", "welspun corp ltd", "east pipes", "east pipes integrated company"],
+        "exclusions": ["welspun living", "welspun enterprises"]
+    },
+    {
+        "symbol": "WELENT.NS",
+        "name": "Welspun Enterprises Ltd",
+        "sector": "Infrastructure & Water EPC",
+        "aliases": ["welspun enterprises", "welspun enterprises ltd"],
+        "exclusions": ["welspun corp", "welspun living"]
+    },
+    {
+        "symbol": "ADVAIT.NS",
+        "name": "Advait Infratech Ltd",
+        "sector": "Power Transmission & Green Energy",
+        "aliases": ["advait infratech", "advait energy", "advait"],
+        "exclusions": []
+    },
+    {
+        "symbol": "ASHIANA.NS",
+        "name": "Ashiana Housing Ltd",
+        "sector": "Real Estate Development",
+        "aliases": ["ashiana housing", "ashiana housing ltd", "ashiana"],
+        "exclusions": []
+    },
+    {
+        "symbol": "ORIANA.NS",
+        "name": "Oriana Power Limited",
+        "sector": "Renewable Energy / Solar & BESS",
+        "aliases": ["oriana power", "truere oriana power", "truere oriana", "oriana power ltd", "oriana"],
+        "exclusions": []
+    },
+    {
+        "symbol": "LENSKART.NS",
+        "name": "Lenskart",
+        "sector": "Eyewear Retail & Consumer Tech",
+        "aliases": ["lenskart", "lenskart solutions"],
         "exclusions": []
     },
     {
@@ -1635,14 +1756,76 @@ EXTERNAL_ECONOMIC_EXPOSURE_REGISTRY = [
 
 
 
+def clean_extracted_entity_name(name: str) -> str:
+    """
+    Rigorously strips leading and trailing tokens, administrative bodies, auxiliary verbs,
+    temporal words, fiscal years, and announcement boilerplate from extracted corporate names.
+    e.g. 'FY27' -> '', 'Today India Genrobotics' -> 'Genrobotics', 'OnEMI board' -> 'OnEMI', 'Welspun Corp unit' -> 'Welspun Corp'.
+    """
+    if not name:
+        return ""
+    cleaned = name.strip()
+
+    # 1. Strip leading junk tokens:
+    # - Fiscal year/quarter references: "FY27", "FY 2026-27", "Q1FY27"
+    cleaned = re.sub(r"^(?:FY\s*\d{2,4}|Q[1-4](?:FY\s*\d{2,4})?)\b\s*", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # - Publisher / news header artifacts: "Today India", "Manufacturing Today India", "Daily", "Morning", "Weekly"
+    cleaned = re.sub(r"^(?:(?:Manufacturing\s+)?Today\s+India|Daily|Morning|Weekly|News|Report)\s+", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # - Temporal & frequency words: "Today", "Yesterday", "Tomorrow", "Now", "Recently"
+    cleaned = re.sub(r"^(?:Today|Yesterday|Tomorrow|Now|Currently|Recently)\s+", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # - Stray leading prepositions & connector words: "In", "At", "On", "For", "To", "From", "With", "By", "As", "After", "Before", "Following", "Per"
+    cleaned = re.sub(r"^(?:In|At|On|For|To|From|With|By|As|After|Before|Following|Per|According\s+to|Amid|Meanwhile)\s+", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # - Leading relationship prefixes: "Kissht parent OnEMI" -> "OnEMI"
+    cleaned = re.sub(r"^(?:parent\s+|subsidiary\s+|promoter\s+|associate\s+|arm\s+|unit\s+|step-down\s+subsidiary\s+)", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # 2. Strip trailing corporate action verbs, administrative bodies, and filler
+    trailing_denylist = [
+        r"\b(?:board(?:\s+of\s+directors)?|panel|committee|management|promoters?|shareholders?)\b.*$",
+        r"\b(?:announced|announces|announcing|said|says|saying|stated|states|reported|reports)\b.*$",
+        r"\b(?:has|have|had|is|are|was|were|will|shall|to|its|and|or|for|at|in|on|with)\b.*$",
+        r"\b(?:arm|unit|subsidiary|division)$",  # Don't tack 'unit' or 'arm' onto display name!
+    ]
+    for pat in trailing_denylist:
+        cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE).strip()
+
+    # Discard if cleaned string is just a fiscal year or temporal word
+    if re.match(r"^(?:FY\s*\d{2,4}|Q[1-4]|Today|Yesterday|Tomorrow|India)$", cleaned, re.IGNORECASE):
+        return ""
+
+    return cleaned
+
+
+def validate_and_normalize_entity_display_name(extracted_name: str, symbol: Optional[str] = None) -> str:
+    """
+    Validates extracted entity name against the official listed equity master list.
+    Exact or near-exact match only.
+    On successful match, always returns the official company name from the master list.
+    If no match is found, returns empty string to discard the candidate.
+    """
+    if not extracted_name and not symbol:
+        return ""
+
+    from engine.equity_master import resolve_entity
+    grounded = resolve_entity(extracted_name, symbol=symbol)
+    if grounded:
+        return grounded[1]
+    return ""
+
+
 def extract_dynamic_corporate_entity(text: str) -> Optional[Dict[str, Any]]:
     """
-    Dynamically resolves listed Indian corporate entities mentioned with formal corporate names
-    ending in Limited or Ltd from text when not pre-indexed in INDIAN_EQUITIES.
-    Guards against law firms, legal advisors, media publishers, and government bodies.
+    Dynamically resolves listed Indian corporate entities mentioned in text by strictly
+    grounding them against the official NSE and BSE listed company masters.
+    Rejects unlisted entities, law firms, and administrative bodies. Zero fabricated tickers.
     """
     if not text:
         return None
+
+    from engine.equity_master import resolve_entity
 
     # Exclude common media, regulatory, legal, governmental or advisor phrases
     excluded_names = {
@@ -1654,7 +1837,13 @@ def extract_dynamic_corporate_entity(text: str) -> Optional[Dict[str, Any]]:
         "ministry of finance", "ministry of defence", "defence acquisition council",
         "nifty 50", "bse sensex", "bank nifty", "cabinet committee",
         "dla piper", "webber wentzel", "cam", "cyril amarchand", "shardul amarchand",
-        "azb & partners", "azb", "khaitan & co", "trilegal", "luthra"
+        "azb & partners", "azb", "khaitan & co", "trilegal", "luthra",
+        # Geopolitical, sovereign, military, political exclusions
+        "pakistan", "pakistan army", "pakistan navy", "pakistan-china", "indian navy", "indian army",
+        "army", "navy", "military", "air force", "defence ministry", "ministry", "parliament", "government",
+        "trump", "trump's sons", "biden", "white house", "pentagon", "state department", "united states",
+        "china", "russia", "israel", "iran", "saudi arabia", "bangladesh", "houthi", "united kingdom",
+        "court", "tribunal", "commission", "boundary", "police"
     }
 
     advisor_keywords = ["advise", "advisor", "advising", "counsel", "law firm", "piper", "wentzel", "amarchand", "legal", "ratings limited", "credit ratings"]
@@ -1663,26 +1852,61 @@ def extract_dynamic_corporate_entity(text: str) -> Optional[Dict[str, Any]]:
     pattern = r"\b([A-Z][A-Za-z0-9&.\-']+(?:\s+[A-Za-z0-9&.\-']+){0,3}\s+(?:Limited|Ltd))\b"
     matches = re.finditer(pattern, text)
     for m in matches:
-        cand_name = m.group(1).strip()
+        cand_name = clean_extracted_entity_name(m.group(1).strip())
         cand_lower = cand_name.lower()
         if any(ex in cand_lower for ex in excluded_names) or any(k in cand_lower for k in advisor_keywords) or len(cand_name) < 5 or len(cand_name) > 50:
             continue
         if is_awarding_client_in_text(text.lower(), cand_lower):
             continue
-        words = cand_name.split()
-        first_word = re.sub(r"[^A-Za-z0-9]", "", words[0]).upper()
-        if len(first_word) >= 3:
-            bare = first_word
-        else:
-            bare = re.sub(r"[^A-Za-z0-9]", "", cand_name.replace("Limited", "").replace("Ltd", "")).upper()[:10]
-        sym = f"{bare}.NS"
+
+        grounded = resolve_entity(cand_name)
+        if not grounded:
+            continue
+        sym, official_name = grounded
         return {
             "symbol": sym,
-            "name": cand_name,
+            "name": official_name,
             "sector": "Indian Listed Equities",
-            "aliases": [cand_lower, bare.lower()],
+            "aliases": [cand_lower, sym.replace(".NS", "").replace(".BO", "").lower()],
             "exclusions": []
         }
+
+    # Match corporate names acting as subjects before milestone verbs (anchored to clause start)
+    pattern_action = r"(?:^|[.\n;\-]\s*)\b([A-Z][A-Za-z0-9&.\-']+(?:\s+[A-Za-z0-9&.\-']+){0,3})\s+(?:secures?|bags?|wins?|receives?|awarded|signs?|enters?\s+into|acquires?|approves?|commissions?|invests?|plans?\s+to\s+invest|to\s+invest)\b"
+    for m in re.finditer(pattern_action, text):
+        cand_name = clean_extracted_entity_name(m.group(1).strip())
+        cand_lower = cand_name.lower()
+
+        # Reject pure fiscal years or invalid tokens
+        if not cand_name or re.match(r"^(?:FY\s*\d{2,4}|Q[1-4]|Today|Yesterday|India)$", cand_name, re.IGNORECASE):
+            continue
+
+        if cand_lower in ["mdl", "mazdock", "mazagon dock"]:
+            return {
+                "symbol": "MAZDOCK.NS",
+                "name": "Mazagon Dock Shipbuilders Ltd",
+                "sector": "Defence & Shipbuilding",
+                "aliases": ["mazagon dock shipbuilders", "mazagon dock shipbuilders ltd", "mazagon dock", "mazdock", "mdl"],
+                "exclusions": []
+            }
+
+        if any(ex in cand_lower for ex in excluded_names) or any(k in cand_lower for k in advisor_keywords) or len(cand_name) < 3 or len(cand_name) > 40:
+            continue
+        if is_awarding_client_in_text(text.lower(), cand_lower):
+            continue
+
+        grounded = resolve_entity(cand_name)
+        if not grounded:
+            continue
+        sym, official_name = grounded
+        return {
+            "symbol": sym,
+            "name": official_name,
+            "sector": "Indian Listed Equities",
+            "aliases": [cand_lower, sym.replace(".NS", "").replace(".BO", "").lower()],
+            "exclusions": []
+        }
+
     return None
 
 
@@ -1691,16 +1915,11 @@ def resolve_external_event_beneficiary(text: str) -> Tuple[Optional[Dict[str, An
     Identifies listed Indian corporate beneficiaries for macro, government, commodity, or industry events
     by checking for company exposure independently from available evidence rather than hardcoded lists.
     """
+    if not text:
+        return None, "Empty text provided."
     text_lower = text.lower()
-    
-    # Check if text mentions exposed companies in the context of the commodity or macro development
-    for eq in INDIAN_EQUITIES:
-        for alias in eq.get("aliases", []):
-            if len(alias) >= 4 and re.search(rf"\b{re.escape(alias)}\b", text_lower):
-                if not any(ex in text_lower for ex in eq.get("exclusions", [])):
-                    if not is_awarding_client_in_text(text_lower, alias):
-                        return eq, f"Identified company-level exposure for '{eq['name']}' from text context."
 
+    # Dynamic Discovery: Match economic drivers against sectoral exposure mechanisms
     for reg in EXTERNAL_ECONOMIC_EXPOSURE_REGISTRY:
         if reg["condition"](text_lower):
             entity = reg["resolver"](text_lower)
@@ -1721,14 +1940,18 @@ def is_multi_company_roundup(text: str) -> bool:
     title_lower = title_line.lower()
 
     # If the headline refers to a single unifying corporate or sovereign event, it is not a generic container
-    if re.search(r"\b(?:dac\b|procurement|lakh\s+crore|order\b|contract\b|bags?\b|secures?\b|wins?\b|loi\b|epc\b|usfda\b|fda\b|scheme\s+of\s+amalgamation|merger\s+with|preferential\s+issue|resignation\b|toll\s+revenue)\b", title_lower):
+    if re.search(r"\b(?:dac\b|procurement|lakh\s+crore|order\b|contract\b|bags?\b|secures?\b|wins?\b|loi\b|epc\b|usfda\b|fda\b|scheme\s+of\s+amalgamation|merger\s+with|preferential\s+issue|resignation\b|toll\s+revenue|raises?\s+fees?|fee\s+(?:hike|revision)|baggage|quarterly\s+results|net\s+profit|revenue\s+growth|consides?|approves?)\b", title_lower):
         return False
 
-    if re.search(r"\b(?:stocks\s+in\s+news|stocks\s+to\s+watch|buzzing\s+stocks|top\s+stocks\s+to\s+watch|stocks\s+to\s+track)\b", title_lower):
+    if re.search(r"\b(?:stocks\s+in\s+news|stocks\s+to\s+watch|buzzing\s+stocks|top\s+stocks\s+to\s+watch|stocks\s+to\s+track|stocks,\s+including|shares,\s+including)\b", title_lower):
+        return True
+
+    # Sector rally / multi-stock movement (e.g., semiconductor stocks rallied, defence stocks surge)
+    if re.search(r"\b(?:semiconductor|defence|pharma|railway|auto|banking|it)\s+stocks?\s+.*?\b(?:rally|rallied|surge|surged|gain|jump)\b", title_lower):
         return True
 
     comma_count = title_line.count(",")
-    if comma_count >= 2 and any(conj in title_lower for conj in [" and ", " & ", "order sparks", "shares in focus", "stock picks"]):
+    if re.search(r"\b(?:stocks?|shares?|brokerages?|losers?|gainers?)\b", title_lower) and comma_count >= 2 and any(conj in title_lower for conj in [" and ", " & ", "order sparks", "shares in focus", "stock picks", "stocks rally"]):
         return True
 
     return False
@@ -1770,67 +1993,56 @@ def is_awarding_client_in_text(text_lower: str, alias: str) -> bool:
 
 def resolve_event_companies_and_roles(text: str) -> List[Dict[str, Any]]:
     """
-    Identifies all involved listed companies and classifies their economic roles:
-      - CONTRACTOR / VENDOR (receives order / revenue -> POSITIVE)
-      - CUSTOMER / PROJECT_OWNER (awards contract / incurs capex -> NEUTRAL / CONTEXTUAL)
-      - ACQUIRER (buys target -> POSITIVE / STRATEGIC)
+    Rigorously parses event text to identify all referenced listed companies and assigns their operational roles.
+    Distinguishes:
+      - CONTRACTOR / VENDOR (winning/awarded the project -> direct positive exposure)
+      - CUSTOMER / BUYER / OWNER (awarding/paying the contract -> capex/commercial client)
+      - ISSUER (issuing debt/equity/warrants -> capital structure)
       - TARGET (being acquired)
-      - BENEFICIARY (receives direct approval, clearance, or licence -> POSITIVE)
+      - ACQUIRER (purchasing target)
     """
     if not text:
         return []
-
     text_lower = text.lower()
-    matched_companies = []
-    
+    discovered: Dict[str, Dict[str, Any]] = {}
+
     for item in INDIAN_EQUITIES:
+        sym = item["symbol"]
         for excl in item.get("exclusions", []):
             if re.search(rf"\b{re.escape(excl)}\b", text_lower):
+                continue
+        for alias in item["aliases"]:
+            if len(alias) >= 3 and re.search(rf"\b{re.escape(alias)}\b", text_lower):
+                if sym not in discovered or len(alias) > len(discovered[sym]["matched_alias"]):
+                    discovered[sym] = {
+                        "item": item,
+                        "matched_alias": alias
+                    }
                 break
-        else:
-            for alias in item["aliases"]:
-                if re.search(rf"\b{re.escape(alias)}\b", text_lower):
-                    matched_companies.append((item, alias))
-                    break
 
-    if not matched_companies:
-        return []
-
-    roles = []
-    has_contract_context = bool(re.search(r"\b(?:order|contract|project|epc|work\s+order|tender|mandate)\b", text_lower))
-    has_order_win_verb = bool(re.search(r"\b(?:secures?|secured|securing|bags?|bagged|bagging|wins?|won|winning|receives?|received|receiving|awarded)\b", text_lower))
-
-    for item, alias in matched_companies:
-        sym = item["symbol"]
+    roles: List[Dict[str, Any]] = []
+    for sym, d in discovered.items():
+        item = d["item"]
+        alias = d["matched_alias"]
         name = item["name"]
         ticker = sym.replace(".NS", "").replace(".BO", "")
 
-        if has_contract_context and is_awarding_client_in_text(text_lower, alias):
+        if is_awarding_client_in_text(text_lower, alias):
             roles.append({
                 "name": name,
                 "ticker": ticker,
                 "symbol": sym,
                 "role": "CUSTOMER",
-                "impact": "neutral",
+                "impact": "neutral_or_capex",
                 "directness": "indirect",
                 "primary": False
             })
-        elif has_contract_context and has_order_win_verb:
+        elif re.search(r"\b(?:order|contract|project|work\s+order|epc|mandate|package|secures?|secured|securing|bags?|bagged|bagging|wins?|won|winning)\b", text_lower):
             roles.append({
                 "name": name,
                 "ticker": ticker,
                 "symbol": sym,
                 "role": "CONTRACTOR",
-                "impact": "positive",
-                "directness": "direct",
-                "primary": True
-            })
-        elif re.search(r"\b(?:acquires?|acquisition|takeover|buys?\s+stake|merger\s+with)\b", text_lower):
-            roles.append({
-                "name": name,
-                "ticker": ticker,
-                "symbol": sym,
-                "role": "ACQUIRER",
                 "impact": "positive",
                 "directness": "direct",
                 "primary": True
@@ -1920,6 +2132,7 @@ def resolve_entity_from_text(text: str, filing_symbol: Optional[str] = None) -> 
         dynamic_cand = extract_dynamic_corporate_entity(text)
         if dynamic_cand:
             return dynamic_cand, f"Dynamically extracted corporate entity '{dynamic_cand['name']}' from text."
+
         return None, "No verified Indian listed entity found in text."
 
     # Priority 2.1: Primary Beneficiary Resolution (Contractor/Vendor vs Awarding Customer)
@@ -1988,6 +2201,23 @@ def validate_event_entity(event_title: str, event_summary: str, assigned_symbol:
         if is_awarding_client_in_text(full_text, alias):
             return False, f"Entity validation failed: {assigned_symbol} is the awarding customer/project owner, not the winning contractor beneficiary."
 
+    # Verify that assigned entity has legitimate textual presence in full_text
+    if not assigned_symbol.startswith(("SECTOR:", "MACRO:")):
+        aliases = meta.get("aliases", [])
+        name_clean = meta.get("name", "")
+        comp_tokens = [w for w in re.sub(r"[^\w\s]", " ", name_clean).lower().split() if len(w) >= 4 and w not in ["limited", "india", "company", "corporation", "ltd", "holdings", "industries"]]
+        has_presence = False
+        for a in aliases:
+            if len(a) >= 3 and re.search(rf"\b{re.escape(a)}\b", full_text):
+                has_presence = True
+                break
+        if not has_presence and comp_tokens:
+            if any(re.search(rf"\b{re.escape(tok)}\b", full_text) for tok in comp_tokens):
+                has_presence = True
+
+        if not has_presence:
+            return False, f"Entity validation failed: Assigned entity '{name_clean}' ({assigned_symbol}) has no textual presence in article."
+
     return True, f"Entity {assigned_symbol} validated successfully."
 
 
@@ -1995,4 +2225,9 @@ def match_company_in_text(text: str) -> List[Dict[str, Any]]:
     """Backward-compatible helper: resolves matching company in text."""
     meta, _ = resolve_entity_from_text(text)
     return [meta] if meta else []
+
+
+# Authoritative grounded entity lookup from official NSE/BSE master
+from engine.equity_master import resolve_entity
+
 

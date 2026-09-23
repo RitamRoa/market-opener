@@ -23,6 +23,27 @@ class SemanticMetricsList(list):
             return None
         return super().__getitem__(item)
 
+    def get(self, key, default=None):
+        if self and isinstance(self[0], dict):
+            return self[0].get(key, default)
+        return default
+
+
+def _normalize_to_cr(raw_num: Any, unit_str: str) -> Tuple[float, str]:
+    """Helper: Normalize raw value and unit string (lakh, crore, lakh crore) to crore."""
+    raw_val = float(str(raw_num).replace(",", ""))
+    unit_lower = unit_str.strip().lower()
+    if "lakh cr" in unit_lower or "lakhcr" in unit_lower:
+        val_cr = round(raw_val * 100000.0, 1)
+        txt = f"₹{raw_val:,.2f} lakh Cr (₹{val_cr:,.0f} Cr)"
+    elif "lakh" in unit_lower or "lac" in unit_lower:
+        val_cr = round(raw_val / 100.0, 4)
+        txt = f"₹{raw_val:,.2f} Lakh (₹{val_cr:,.2f} Cr)"
+    else: # crore / cr
+        val_cr = round(raw_val, 2)
+        txt = f"₹{val_cr:,.1f} Cr"
+    return val_cr, txt
+
 
 def parse_semantic_financial_metrics(text: str) -> SemanticMetricsList:
     """
@@ -41,7 +62,7 @@ def parse_semantic_financial_metrics(text: str) -> SemanticMetricsList:
     metrics = SemanticMetricsList()
 
     # 1. Lakh Crore Aggregate Patterns (e.g. "Rs 1.45 lakh crore defence proposals", "Rs 1.10 lakh cr")
-    lakh_cr_pattern = r"(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*lakh\s*(?:cr(?:ore)?s?)\b"
+    lakh_cr_pattern = r"(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*lakh\s*(?:cr(?:ore)?s?)\b"
     for match in re.finditer(lakh_cr_pattern, text, re.IGNORECASE):
         raw_val = float(match.group(1).replace(",", ""))
         val_cr = round(raw_val * 100000.0, 1)
@@ -57,56 +78,65 @@ def parse_semantic_financial_metrics(text: str) -> SemanticMetricsList:
             "description": f"Capital allocation / procurement pipeline of ₹{raw_val:,.2f} lakh Cr"
         })
 
-    # 2. Order Value RANGES (e.g. "₹100-250 crore order", "₹9,000–10,000 cr package", "Rs 100 to 250 crore")
-    range_order_pattern = r"(?:(?:order|contract|project|deal|mandate|package)\b[^.]{0,80}?)?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:-|–|—|to)\s*(?:rs\.?|inr|₹)?\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    # 2. Order Value RANGES (Crore or Lakh, e.g. "₹100-250 crore order", "₹40-50 lakh contract")
+    range_order_pattern = r"(?:(?:order|contract|project|deal|mandate|package)\b[^.]{0,80}?)?(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:-|–|—|to)\s*(?:rs\.?|inr|₹|\?)?\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
     for match in re.finditer(range_order_pattern, text, re.IGNORECASE):
-        low_val = float(match.group(1).replace(",", ""))
-        high_val = float(match.group(2).replace(",", ""))
-        if low_val > high_val:
-            low_val, high_val = high_val, low_val
+        unit_match = match.group(3).lower()
+        low_raw = float(match.group(1).replace(",", ""))
+        high_raw = float(match.group(2).replace(",", ""))
+        if low_raw > high_raw:
+            low_raw, high_raw = high_raw, low_raw
+        if "lakh" in unit_match or "lac" in unit_match:
+            low_cr = round(low_raw / 100.0, 4)
+            high_cr = round(high_raw / 100.0, 4)
+            range_display = f"₹{low_raw:,.2f}–{high_raw:,.2f} Lakh (₹{low_cr:,.2f}–{high_cr:,.2f} Cr)"
+        else:
+            low_cr = round(low_raw, 2)
+            high_cr = round(high_raw, 2)
+            range_display = f"₹{low_cr:,.0f}–{high_cr:,.0f} Cr"
         metrics.append({
             "metric": "ORDER_VALUE",
             "metric_type": "ORDER_VALUE",
-            "value_cr": high_val,
-            "amount_cr": high_val,
-            "range_low_cr": low_val,
-            "range_high_cr": high_val,
-            "range_text": f"₹{low_val:,.0f}–{high_val:,.0f} Cr",
-            "description": f"Disclosed contract range of ₹{low_val:,.0f}–{high_val:,.0f} Cr"
+            "value_cr": high_cr,
+            "amount_cr": high_cr,
+            "range_low_cr": low_cr,
+            "range_high_cr": high_cr,
+            "range_text": range_display,
+            "description": f"Disclosed contract range of {range_display}"
         })
 
-    # 3. PAT / Net Profit patterns (handles "PAT falls 26% to Rs 174 cr", "net profit of Rs 500 cr", etc.)
-    pat_pattern = r"(?:net\s+profit|pat|net\s+income)\b[^.]{0,80}?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    # 3. PAT / Net Profit patterns (Crore or Lakh)
+    pat_pattern = r"(?:net\s+profit|pat|net\s+income)\b[^.]{0,80}?(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
     for match in re.finditer(pat_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
         pct_match = re.search(r"\b([0-9]+(?:\.[0-9]+)?)\s*%", match.group(0))
         pct_val = float(pct_match.group(1)) if pct_match else None
         metrics.append({
             "metric": "PAT",
             "metric_type": "PAT",
-            "value_cr": val,
-            "amount_cr": val,
+            "value_cr": val_cr,
+            "amount_cr": val_cr,
             "range_low_cr": None,
             "range_high_cr": None,
-            "range_text": f"₹{val:,.1f} Cr",
+            "range_text": range_display,
             "percentage_change": pct_val,
-            "description": f"Net Profit (PAT) of ₹{val:,.1f} Cr"
+            "description": f"Net Profit (PAT) of {range_display}"
         })
 
-    # Reverse PAT pattern: "Rs 174 cr net profit"
-    rev_pat_pattern = r"(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b[^.]{0,40}?\b(?:net\s+profit|pat|net\s+income)\b"
+    # Reverse PAT pattern: "Rs 174 cr net profit" or "Rs 50 lakh net profit"
+    rev_pat_pattern = r"(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b[^.]{0,40}?\b(?:net\s+profit|pat|net\s+income)\b"
     for match in re.finditer(rev_pat_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
-        if not any(m["metric"] == "PAT" and abs(m["value_cr"] - val) < 0.01 for m in metrics):
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
+        if not any(m["metric"] == "PAT" and abs(m["value_cr"] - val_cr) < 0.001 for m in metrics):
             metrics.append({
                 "metric": "PAT",
                 "metric_type": "PAT",
-                "value_cr": val,
-                "amount_cr": val,
+                "value_cr": val_cr,
+                "amount_cr": val_cr,
                 "range_low_cr": None,
                 "range_high_cr": None,
-                "range_text": f"₹{val:,.1f} Cr",
-                "description": f"Net Profit (PAT) of ₹{val:,.1f} Cr"
+                "range_text": range_display,
+                "description": f"Net Profit (PAT) of {range_display}"
             })
 
     # 4. Operating Updates (e.g. "net loss narrows to Rs 14 crore; revenue up 34%")
@@ -176,80 +206,80 @@ def parse_semantic_financial_metrics(text: str) -> SemanticMetricsList:
         })
 
     # 7. Revenue / Sales single patterns (handles "revenue rises 12% to Rs 3,927 cr", etc.)
-    rev_pattern = r"(?:revenue|topline|sales|turnover)\b[^.]{0,80}?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    rev_pattern = r"(?:revenue|topline|sales|turnover)\b[^.]{0,80}?(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
     for match in re.finditer(rev_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
-        if not any(m["metric"] in ["REVENUE", "EQUITY_RAISE", "TOLL_REVENUE"] and abs(m["value_cr"] - val) < 0.01 for m in metrics):
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
+        if not any(m["metric"] in ["REVENUE", "EQUITY_RAISE", "TOLL_REVENUE"] and abs(m["value_cr"] - val_cr) < 0.001 for m in metrics):
             metrics.append({
                 "metric": "REVENUE",
                 "metric_type": "REVENUE",
-                "value_cr": val,
-                "amount_cr": val,
+                "value_cr": val_cr,
+                "amount_cr": val_cr,
                 "range_low_cr": None,
                 "range_high_cr": None,
-                "range_text": f"₹{val:,.1f} Cr",
-                "description": f"Revenue of ₹{val:,.1f} Cr"
+                "range_text": range_display,
+                "description": f"Revenue of {range_display}"
             })
 
-    # 6. Order / Contract Single Value patterns (INR)
-    order_pattern = r"(?:order|contract|project|deal|mandate)\b[^.]{0,80}?(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    # 6. Order / Contract Single Value patterns (INR: Crore or Lakh)
+    order_pattern = r"(?:order|contract|project|deal|mandate)\b[^.]{0,80}?(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
     for match in re.finditer(order_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
-        if not any(m["metric"] in ["ORDER_VALUE", "PAT", "PROCUREMENT_PIPELINE"] and abs(m["value_cr"] - val) < 0.01 for m in metrics):
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
+        if not any(m["metric"] in ["ORDER_VALUE", "PAT", "PROCUREMENT_PIPELINE"] and abs(m["value_cr"] - val_cr) < 0.001 for m in metrics):
             metrics.append({
                 "metric": "ORDER_VALUE",
                 "metric_type": "ORDER_VALUE",
-                "value_cr": val,
-                "amount_cr": val,
+                "value_cr": val_cr,
+                "amount_cr": val_cr,
                 "range_low_cr": None,
                 "range_high_cr": None,
-                "range_text": f"₹{val:,.1f} Cr",
-                "description": f"Order value of ₹{val:,.1f} Cr"
+                "range_text": range_display,
+                "description": f"Order value of {range_display}"
             })
 
-    alt_order_pattern = r"(?:(?:rs\.?|inr|₹)\s*|worth\s+)([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b[^.]{0,50}?\b(?:order|contract|work\s+order|epc|project)\b"
+    alt_order_pattern = r"(?:(?:rs\.?|inr|₹|\?)\s*|worth\s+|valued\s+at\s+)([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b[^.]{0,50}?\b(?:order|contract|work\s+order|epc|project|purchase\s+order)\b"
     for match in re.finditer(alt_order_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
-        if not any(m["metric"] in ["ORDER_VALUE", "PAT", "PROCUREMENT_PIPELINE"] and abs(m["value_cr"] - val) < 0.01 for m in metrics):
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
+        if not any(m["metric"] in ["ORDER_VALUE", "PAT", "PROCUREMENT_PIPELINE"] and abs(m["value_cr"] - val_cr) < 0.001 for m in metrics):
             metrics.append({
                 "metric": "ORDER_VALUE",
                 "metric_type": "ORDER_VALUE",
-                "value_cr": val,
-                "amount_cr": val,
+                "value_cr": val_cr,
+                "amount_cr": val_cr,
                 "range_low_cr": None,
                 "range_high_cr": None,
-                "range_text": f"₹{val:,.1f} Cr",
-                "description": f"Order value of ₹{val:,.1f} Cr"
+                "range_text": range_display,
+                "description": f"Order value of {range_display}"
             })
 
-    # 7. Capex / Investment patterns
-    capex_pattern = r"(?:capex|investment|investing)\s+(?:of|worth|around)?\s*(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    # 7. Capex / Investment patterns (Crore or Lakh)
+    capex_pattern = r"(?:capex|investment|investing)\s+(?:of|worth|around)?\s*(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
     for match in re.finditer(capex_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
         metrics.append({
             "metric": "CAPEX",
             "metric_type": "CAPEX",
-            "value_cr": val,
-            "amount_cr": val,
+            "value_cr": val_cr,
+            "amount_cr": val_cr,
             "range_low_cr": None,
             "range_high_cr": None,
-            "range_text": f"₹{val:,.1f} Cr",
-            "description": f"Capex investment of ₹{val:,.1f} Cr"
+            "range_text": range_display,
+            "description": f"Capex investment of {range_display}"
         })
 
-    # 8. Penalty / Regulatory Fine patterns
-    penalty_pattern = r"(?:penalty|fine|tax\s+demand)\s+(?:of)?\s*(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+    # 8. Penalty / Regulatory Fine patterns (Crore or Lakh)
+    penalty_pattern = r"(?:penalty|fine|tax\s+demand)\s+(?:of)?\s*(?:rs\.?|inr|₹|\?)\s*([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
     for match in re.finditer(penalty_pattern, text, re.IGNORECASE):
-        val = float(match.group(1).replace(",", ""))
+        val_cr, range_display = _normalize_to_cr(match.group(1), match.group(2))
         metrics.append({
             "metric": "PENALTY",
             "metric_type": "PENALTY",
-            "value_cr": val,
-            "amount_cr": val,
+            "value_cr": val_cr,
+            "amount_cr": val_cr,
             "range_low_cr": None,
             "range_high_cr": None,
-            "range_text": f"₹{val:,.1f} Cr",
-            "description": f"Regulatory penalty / demand of ₹{val:,.1f} Cr"
+            "range_text": range_display,
+            "description": f"Regulatory penalty / demand of {range_display}"
         })
 
     # 9. USD / Foreign Currency Order or Deal patterns ($50 million export deal)
@@ -272,21 +302,21 @@ def parse_semantic_financial_metrics(text: str) -> SemanticMetricsList:
             "description": f"Disclosed monetary figure of ₹{val_cr:,.1f} Cr (~${raw_val} {unit})"
         })
 
-    # 10. Generic monetary extraction if no semantic pattern matched
+    # 10. Generic monetary extraction if no semantic pattern matched (Crore or Lakh)
     if not metrics:
-        generic_pattern = r"(?:(?:rs\.?|inr|₹)\s*|worth\s+|valued\s+at\s+)([0-9,]+(?:\.[0-9]+)?)\s*(?:cr(?:ore)?s?)\b"
+        generic_pattern = r"(?:(?:rs\.?|inr|₹|\?)\s*|worth\s+|valued\s+at\s+)([0-9,]+(?:\.[0-9]+)?)\s*(cr(?:ore)?s?|lakhs?|lacs?)\b"
         match_gen = re.search(generic_pattern, text, re.IGNORECASE)
         if match_gen:
-            val = float(match_gen.group(1).replace(",", ""))
+            val_cr, range_display = _normalize_to_cr(match_gen.group(1), match_gen.group(2))
             metrics.append({
                 "metric": "GENERIC_MONETARY",
                 "metric_type": "GENERIC_MONETARY",
-                "value_cr": val,
-                "amount_cr": val,
+                "value_cr": val_cr,
+                "amount_cr": val_cr,
                 "range_low_cr": None,
                 "range_high_cr": None,
-                "range_text": f"₹{val:,.1f} Cr",
-                "description": f"Disclosed monetary figure of ₹{val:,.1f} Cr"
+                "range_text": range_display,
+                "description": f"Disclosed monetary figure of {range_display}"
             })
 
     return metrics

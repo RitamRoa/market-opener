@@ -72,6 +72,12 @@ def main():
         default="23:59:59",
         help="Historical cutoff time in HH:MM:SS format (default: 23:59:59 IST)"
     )
+    parser.add_argument(
+        "--trace-company",
+        type=str,
+        default=None,
+        help="Diagnostically trace a company across all 6 pipeline stages (e.g. --trace-company 'Mazagaon Dock')"
+    )
 
     args = parser.parse_args()
     setup_logging(args.debug)
@@ -82,7 +88,8 @@ def main():
             max_items=args.max_items, 
             debug=args.debug, 
             target_date=args.date,
-            cutoff_time=args.cutoff
+            cutoff_time=args.cutoff,
+            trace_company=args.trace_company
         )
         print("\n" + report_text)
     except KeyboardInterrupt:

@@ -17,11 +17,20 @@ from typing import List, Dict, Any, Tuple, Optional
 from engine.nse_bse_client import get_all_exchange_announcements, get_historical_exchange_announcements
 from engine.news_collector import collect_market_news, collect_historical_market_news
 from engine.noise_filter import is_material_fundamental_event
-from engine.entity_mapper import resolve_entity_from_text, validate_event_entity
+from engine.entity_mapper import resolve_entity_from_text, validate_event_entity, clean_extracted_entity_name
+from engine.equity_master import resolve_entity
 from engine.policy_macro_engine import detect_policy_event, detect_macro_item
 from engine.deduplicator import deduplicate_and_cluster_news
 from engine.fna_analyzer import synthesize_fna_item
-from engine.db import save_fna_event, save_fna_report, get_connection
+from engine.db import (
+    save_fna_event, 
+    save_fna_report, 
+    get_connection,
+    get_cached_news_by_date,
+    get_surfaced_events_in_window,
+    is_stale_recurrent_event,
+    save_surfaced_events
+)
 from engine.candidate_engine import (
     compute_research_importance_model,
     assign_materiality_tier,
@@ -31,6 +40,8 @@ from engine.candidate_engine import (
     format_candidate_debug_log,
     normalize_company_key
 )
+from engine.macro_commentary import generate_macro_commentary
+from engine.sector_causal_engine import evaluate_sector_causal_chains
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +49,115 @@ REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 IST = zoneinfo.ZoneInfo("Asia/Kolkata")
+
+
+def run_company_trace(
+    trace_company: str,
+    all_raw_events: List[Dict[str, Any]],
+    material_events: List[Dict[str, Any]],
+    resolved_events: List[Dict[str, Any]],
+    clusters: List[Dict[str, Any]],
+    evaluated_candidates: List[Dict[str, Any]],
+    actionable_candidates: List[Dict[str, Any]],
+    top_news: List[Dict[str, Any]]
+) -> None:
+    """
+    Diagnostically traces a target company across all 6 pipeline stages:
+    1. Ingestion: did raw feeds pull articles mentioning company?
+    2. Noise Filter: did it survive routine noise rejection?
+    3. Entity Resolution: did it resolve to an NSE/BSE symbol and assign economic role?
+    4. Canonical Deduplication: which cluster was it grouped into?
+    5. Scoring & Actionability: what was its score, tier, and actionability reason?
+    6. Final Selection: was it selected in TOP NEWS or omitted?
+    """
+    query = trace_company.strip().lower()
+    norm_query = normalize_company_key(query)
+    target_meta, _ = resolve_entity_from_text(trace_company)
+    target_sym = target_meta.get("symbol") if target_meta else None
+
+    def matches(item: Dict[str, Any]) -> bool:
+        sym = (item.get("symbol") or item.get("filing_symbol") or "").strip().upper()
+        if target_sym and sym and (sym == target_sym or sym.replace(".NS", "").replace(".BO", "") == target_sym.replace(".NS", "").replace(".BO", "")):
+            return True
+        t = (str(item.get("title", "")) + " " + str(item.get("summary", "")) + " " + 
+             str(item.get("company_name", "")) + " " + str(item.get("symbol", "")) + " " +
+             str(item.get("headline", "")) + " " + str(item.get("what_happened", ""))).lower()
+        if query in t:
+            return True
+        if target_meta:
+            for al in target_meta.get("aliases", []):
+                if len(al) >= 4 and al in t:
+                    return True
+        norm_c = normalize_company_key(item.get("company_name", ""), item.get("symbol", ""))
+        if norm_c and len(norm_c) >= 3 and (norm_query in norm_c or norm_c in norm_query):
+            return True
+        import difflib
+        if norm_c and len(norm_c) >= 4 and difflib.SequenceMatcher(None, norm_query, norm_c).ratio() >= 0.75:
+            return True
+        q_tokens = set(re.findall(r"\b[a-zA-Z]{3,}\b", norm_query))
+        c_tokens = set(re.findall(r"\b[a-zA-Z]{3,}\b", norm_c))
+        if q_tokens and c_tokens:
+            if q_tokens.issubset(c_tokens):
+                return True
+            if len(c_tokens) >= 2 and c_tokens.issubset(q_tokens):
+                return True
+        return False
+
+    print("\n" + "=" * 70)
+    print(f"       COMPANY TRACE REPORT: '{trace_company}'")
+    print("=" * 70)
+
+    # Stage 1: Ingestion
+    ingested = [ev for ev in all_raw_events if matches(ev)]
+    print(f"\n[STAGE 1: INGESTION] Found {len(ingested)} matching raw items.")
+    for idx, ev in enumerate(ingested[:5], 1):
+        print(f"  {idx}. [{ev.get('source')}] {ev.get('title')[:80]} (Published: {ev.get('published_at')})")
+
+    # Stage 2: Noise Filter
+    survived_noise = [ev for ev in material_events if matches(ev)]
+    print(f"\n[STAGE 2: NOISE FILTER] {len(survived_noise)} / {len(ingested)} survived noise filter.")
+    if len(ingested) > len(survived_noise):
+        diff = [ev for ev in ingested if ev not in survived_noise]
+        for idx, ev in enumerate(diff[:3], 1):
+            from engine.noise_filter import is_material_fundamental_event
+            _, r = is_material_fundamental_event(ev["title"], ev["summary"], is_primary_exchange_filing=ev.get("is_primary", False))
+            print(f"  Filtered {idx}: {ev.get('title')[:60]}... Reason: {r}")
+
+    # Stage 3: Entity Resolution
+    resolved = [ev for ev in resolved_events if matches(ev)]
+    print(f"\n[STAGE 3: ENTITY RESOLUTION] {len(resolved)} items resolved.")
+    for idx, ev in enumerate(resolved[:3], 1):
+        print(f"  Resolved {idx}: Entity='{ev.get('company_name')}' Symbol='{ev.get('symbol')}' Sector='{ev.get('sector')}'")
+
+    # Stage 4: Clustering
+    in_clusters = [cl for cl in clusters if matches(cl)]
+    print(f"\n[STAGE 4: CLUSTERING] Present in {len(in_clusters)} canonical clusters.")
+    for idx, cl in enumerate(in_clusters[:3], 1):
+        print(f"  Cluster {idx}: '{cl.get('title', '')[:70]}' (Sources: {len(cl.get('sources', []))})")
+
+    # Stage 5: Evaluation & Scoring
+    evaled = [cand for cand in evaluated_candidates if matches(cand)]
+    print(f"\n[STAGE 5: EVALUATION & ACTIONABILITY] {len(evaled)} candidates evaluated.")
+    for idx, cand in enumerate(evaled[:3], 1):
+        sc = cand.get("research_scores", {}).get("total_score", cand.get("research_importance_score", "N/A"))
+        tier = cand.get("tier", "N/A")
+        reason = cand.get("actionable_reason", "Not assessed")
+        stale_reason = cand.get("cross_day_stale_reason")
+        print(f"  Candidate {idx}: Score={sc} | Tier={tier} | EventType={cand.get('event_type')}")
+        print(f"    Actionability: {reason}")
+        if stale_reason:
+            print(f"    Cross-Day Status: Omitted (Stale recurrent: {stale_reason})")
+        print(f"    Headline: {cand.get('headline', '')[:80]}")
+
+    # Stage 6: Final Selection
+    final_matches = [it for it in top_news if matches(it)]
+    print(f"\n[STAGE 6: FINAL TOP NEWS SELECTION] {len(final_matches)} included in final TOP NEWS.")
+    if final_matches:
+        for it in final_matches:
+            print(f"  SELECTED: {it.get('company_name')} ({it.get('symbol')}) — Direction: {it.get('fundamental_direction')}")
+    else:
+        print(f"  OMITTED: '{trace_company}' was not selected in final TOP NEWS list.")
+    print("=" * 70 + "\n")
 
 
 def parse_datetime_ist(date_str: str) -> Optional[datetime]:
@@ -177,7 +297,14 @@ from engine.run_context import RunContext, set_current_context, get_current_cont
 from engine.db import cache_news
 
 
-def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, target_date: Optional[str] = None, cutoff_time: str = "23:59:59", min_target: int = 4) -> Tuple[List[Dict[str, Any]], str]:
+def run_fna_pipeline(
+    max_items: Optional[int] = None, 
+    debug: bool = False, 
+    target_date: Optional[str] = None, 
+    cutoff_time: str = "23:59:59", 
+    min_target: int = 4,
+    trace_company: Optional[str] = None
+) -> Tuple[List[Dict[str, Any]], str]:
     """
     Executes the event-first FNA pipeline and returns (top_news_items, formatted_report_text).
     Supports live scanning and historical date reconstruction via target_date in Asia/Kolkata timezone.
@@ -223,6 +350,10 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
     print(f"[INFO] Querying financial news and regulatory feeds for {iso_date}...")
     logger.info(f"Querying financial news and regulatory feeds for {iso_date}...")
     raw_news = collect_market_news(target_date=iso_date)
+    # Include articles already cached/ingested in SQLite for this target date
+    cached_db_news = get_cached_news_by_date(iso_date)
+    if cached_db_news:
+        raw_news.extend(cached_db_news)
 
     for ann in raw_announcements:
         pub_str = ann.get("published_at", "")
@@ -362,6 +493,16 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
             continue
 
         assigned_symbol = entity_meta["symbol"]
+        raw_company_name = entity_meta["name"]
+
+        # Quality Gate 2.1: Authoritative Grounded Entity Lookup against official NSE/BSE master
+        grounded = resolve_entity(raw_company_name, symbol=assigned_symbol)
+        if not grounded:
+            if debug:
+                print(f"[REJECT UNLISTED] '{ev['title'][:60]}' — '{raw_company_name}' ({assigned_symbol}) is not in official listed master")
+                logger.debug(f"Entity Unlisted: '{raw_company_name}' is not in official listed master")
+            continue
+        official_ticker, official_name = grounded
 
         # Validate entity (catches parent-subsidiary mismatch or client vs vendor confusion)
         is_valid, val_reason = validate_event_entity(ev["title"], ev["summary"], assigned_symbol)
@@ -379,10 +520,11 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
                 for r in roles:
                     is_ben = "YES" if r["symbol"] == assigned_symbol else "NO"
                     print(f"  - {r['name']} ({r['symbol']}) -> ROLE: {r['role']} (Economic Beneficiary: {is_ben})")
-                print(f"  Selected Entity: {entity_meta['name']} ({assigned_symbol})")
+                print(f"  Selected Entity: {official_name} ({official_ticker})")
 
         ev_copy = dict(ev)
-        ev_copy["company_name"] = entity_meta["name"]
+        ev_copy["company_name"] = official_name
+        ev_copy["ticker"] = official_ticker
         ev_copy["symbol"] = assigned_symbol
         ev_copy["sector"] = entity_meta["sector"]
         resolved_events.append(ev_copy)
@@ -392,7 +534,7 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
     # Step 4: Quality Gate 3 — Event Deduplication & Multi-Source Clustering
     print("[INFO] Deduplicating and clustering developments...")
     logger.info("Deduplicating and clustering developments...")
-    clusters = deduplicate_and_cluster_news(resolved_events, similarity_threshold=0.35)
+    clusters = deduplicate_and_cluster_news(resolved_events, similarity_threshold=0.55)
     logger.info(f"Clustered into {len(clusters)} distinct canonical fundamental events.")
 
     # Step 5: Research Candidate Evaluation & Materiality Tiering
@@ -444,13 +586,41 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
         company_key = normalize_company_key(item.get("company_name", ""), item.get("symbol", sym))
 
         # Retain highest importance candidate per company in the evaluated pool
+        # Materiality preference: quantified financial results beat vague qualitative announcements
         if company_key in seen_companies:
             prev_item = seen_companies[company_key]
-            if item.get("research_importance_score", 0) > prev_item.get("research_importance_score", 0):
+            prev_is_fin = prev_item.get("event_type") == "FINANCIAL_RESULT"
+            curr_is_fin = item.get("event_type") == "FINANCIAL_RESULT"
+            prefer_curr = False
+            if curr_is_fin and not prev_is_fin:
+                prefer_curr = True
+            elif prev_is_fin and not curr_is_fin:
+                prefer_curr = False
+            elif item.get("research_importance_score", 0) > prev_item.get("research_importance_score", 0):
+                prefer_curr = True
+
+            primary_item = item if prefer_curr else prev_item
+            secondary_item = prev_item if prefer_curr else item
+
+            if prefer_curr:
                 evaluated_candidates.remove(prev_item)
-                seen_companies[company_key] = item
-                evaluated_candidates.append(item)
-                save_fna_event(item)
+                seen_companies[company_key] = primary_item
+                evaluated_candidates.append(primary_item)
+
+            # Preserve secondary material fact in primary item
+            sec_headline = secondary_item.get("headline", "")
+            sec_summary = secondary_item.get("what_happened", "")
+            sec_text = secondary_item.get("flowing_prose", "") or sec_summary
+
+            if "secondary_developments" not in primary_item:
+                primary_item["secondary_developments"] = []
+            primary_item["secondary_developments"].append({
+                "headline": sec_headline,
+                "what_happened": sec_summary,
+                "event_type": secondary_item.get("event_type")
+            })
+
+            save_fna_event(primary_item)
             continue
 
         seen_companies[company_key] = item
@@ -465,13 +635,43 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
             cand["actionable_reason"] = reason
             actionable_candidates.append(cand)
 
+    # Cross-Day Deduplication (Gap 1)
+    # Check candidates against persistent store of surfaced fingerprints from prior 2 trading days.
+    prior_surfaced = get_surfaced_events_in_window(iso_date, lookback_days=2)
+    fresh_evaluated_candidates = []
+    for cand in evaluated_candidates:
+        is_stale, stale_reason = is_stale_recurrent_event(cand, prior_surfaced)
+        if is_stale:
+            cand["cross_day_stale_reason"] = stale_reason
+            logger.info(f"Cross-day dedup omitted {cand.get('company_name')}: {stale_reason}")
+            if debug:
+                print(f"[CROSS-DAY DEDUP] Omitted {cand.get('company_name')}: {stale_reason}")
+        else:
+            fresh_evaluated_candidates.append(cand)
+
+    # Diagnostic logging: print every candidate's final score before selection cap (Requirement 2)
+    print("\n" + "=" * 60)
+    print("      CANDIDATE SCORES BEFORE SELECTION CAP")
+    print("=" * 60)
+    logger.info("CANDIDATE SCORES BEFORE SELECTION CAP:")
+    for c in sorted(fresh_evaluated_candidates, key=lambda x: x.get("research_importance_score", 0.0), reverse=True):
+        c_score = c.get("research_importance_score", 0.0)
+        c_name = clean_extracted_entity_name(c.get("company_name", ""))
+        c_sym = c.get("symbol", "")
+        c_tier = c.get("tier", "")
+        c_type = c.get("event_type", "")
+        c_head = (c.get("headline", "") or "")[:50]
+        print(f"  {c_name:<30} ({c_sym:<12}) | Score: {c_score:>5.2f} | Tier: {c_tier:<6} | {c_type:<18} | {c_head}")
+        logger.info(f"  {c_name} ({c_sym}) | Score: {c_score:.2f} | Tier: {c_tier} | {c_type} | {c_head}")
+    print("=" * 60 + "\n")
+
     # Step 6: Relative Daily Ranking & Selection
-    # Discovers all genuinely actionable stocks with a minimum target of 4-5 without artificial 5-item cap.
+    # Discovers genuinely actionable stocks, capped at roughly 5-8 company items.
     ranked_pool = rank_daily_research_candidates(
-        evaluated_candidates,
+        fresh_evaluated_candidates,
         max_items=max_items,
         min_target=min_target,
-        max_ceiling=15
+        max_ceiling=10
     )
 
     from engine.candidate_scanner import get_closing_price_for_date
@@ -503,22 +703,59 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
         if max_items is not None and len(valid_listed_news) >= max_items:
             break
 
-    top_news = valid_listed_news
+    # Macro Commentary & Gated Sector Causal Commentary (Requirements 1 & 5)
+    macro_commentary = generate_macro_commentary(all_raw_events, iso_date)
+    sector_causals = evaluate_sector_causal_chains(material_events, iso_date)
 
-    # Sort final selected stocks:
-    # 1. Standalone Policy & Macro entries (ordered by score descending)
-    # 2. Company entries with valid closing price (ordered ascending by price)
-    # 3. Company entries without closing price (ordered by score descending)
+    # Gate sector causal chains: Hold any items requiring review in a separate pending file
+    # and DO NOT auto-publish unreviewed causal speculations into the main bulletin.
+    unreviewed_causals = []
+    approved_causals = []
+    for sc in sector_causals:
+        flag = sc.get("human_review_flag", "")
+        if "requires review" in flag.lower() or flag:
+            unreviewed_causals.append(sc)
+        else:
+            approved_causals.append(sc)
+
+    if unreviewed_causals:
+        causals_path_json = os.path.join(REPORTS_DIR, f"pending_review_causal_chains_{iso_date}.json")
+        with open(causals_path_json, "w", encoding="utf-8") as f:
+            json.dump(unreviewed_causals, f, indent=2, default=str)
+        print(f"[INFO] {len(unreviewed_causals)} sector causal chain(s) held for human review -> {causals_path_json}")
+        logger.info(f"Routed {len(unreviewed_causals)} sector causal chain(s) to pending review file: {causals_path_json}")
+
+    # Final output: strictly ranked list of actionable stocks ordered by descending materiality score
+    # Drop macro commentary and sector causal commentary completely from the stock list (no ticker)
+    top_news = list(valid_listed_news)
+
     def top_news_sort_key(x):
-        p = x.get("closing_price")
-        sc = float(x.get("research_importance_score", 0.0) or 0.0)
-        if x.get("candidate_type") in ["POLICY_EVENT", "MACRO_EVENT"]:
-            return (0, 0.0, -sc)
-        if p is not None and p > 0:
-            return (1, float(p), -sc)
-        return (2, 0.0, -sc)
+        sc = x.get("research_scores")
+        if isinstance(sc, dict):
+            return -float(sc.get("total_score", sc.get("research_importance_score", 0.0)))
+        return -float(x.get("research_importance_score", 0.0) or 0.0)
 
     top_news.sort(key=top_news_sort_key)
+
+    # Dynamic cap: Keep whatever the existing Tier A/B materiality gate produces (unless max_items explicitly set)
+    if max_items is not None:
+        top_news = top_news[:max_items]
+
+    # Persist today's surfaced events to SQLite store to prevent repeats tomorrow (Gap 1)
+    save_surfaced_events(top_news, iso_date)
+
+    # Run Company Tracing if requested (Gap 2)
+    if trace_company:
+        run_company_trace(
+            trace_company,
+            all_raw_events,
+            material_events,
+            resolved_events,
+            clusters,
+            evaluated_candidates,
+            actionable_candidates,
+            top_news
+        )
 
     # Log candidate selection decisions in debug mode
     if debug:
@@ -572,104 +809,99 @@ def run_fna_pipeline(max_items: Optional[int] = None, debug: bool = False, targe
     return top_news, report_text
 
 
+def build_one_line_reason(item: Dict[str, Any]) -> str:
+    """
+    Constructs a crisp, single-sentence fundamental reason with the key number
+    (monetary value, physical capacity, percentage, or volume metric).
+    """
+    headline = (item.get("headline") or "").strip()
+    summary = (item.get("what_happened") or item.get("summary") or "").strip()
+    order_val = item.get("order_value_cr")
+    pct_rev = item.get("relative_revenue_pct")
+    range_text = item.get("range_text")
+    company = item.get("company_name", "")
+
+    # Base candidate text
+    base_text = headline if len(headline) > 15 else summary
+    if not base_text:
+        base_text = "Key corporate milestone announced."
+
+    from engine.fna_analyzer import clean_fundamental_headline
+    clean = clean_fundamental_headline(base_text, company)
+    clean = re.sub(r"\bRs\.?\s*(\d+)", r"₹\1", clean)
+    clean = re.sub(r"\b(?:crore|crores)\b", "Cr", clean, flags=re.IGNORECASE)
+
+    # Check if a concrete number is present in clean text
+    has_number = bool(re.search(r"(?:₹|%|\b\d+)", clean))
+    if not has_number:
+        if order_val:
+            clean = f"{clean} valued at ₹{order_val:,.1f} Cr"
+        elif pct_rev:
+            clean = f"{clean} (~{pct_rev:.1f}% of revenue)"
+        elif range_text:
+            clean = f"{clean} ({range_text})"
+
+    # Remove any trailing periods and normalize spaces
+    clean = re.sub(r"\s+", " ", clean).strip().rstrip(".")
+    return clean
+
+
 def format_top_news_report(report_date_str: str, items: List[Dict[str, Any]]) -> str:
     """
-    Formats the intelligence bulletin matching the Sharekhan FNA CLI format.
-    STRICTLY ONLY TOP NEWS. No Macro Wrap. No Watchlist. No Trading Signals.
+    Formats the intelligence bulletin into a ranked list ordered by descending materiality score:
+      1. TICKER — Positive/Negative — one-line reason with the key number
+      2. TICKER — ...
+    Zero confidence tags, zero extra fields. Dynamic cap.
+    Macro/global context and sector causal chains are completely omitted (they have no ticker).
     """
+    from engine.equity_master import resolve_entity
+
+    # Filter strictly to listed company candidates with valid tickers
+    stock_candidates = []
+    for it in items:
+        if not it or not isinstance(it, dict):
+            continue
+        cand_type = it.get("candidate_type", "")
+        # Drop macro and sector causal chains entirely
+        if cand_type in ["MACRO_COMMENTARY", "SECTOR_CAUSAL_COMMENTARY", "POLICY_EVENT", "MACRO_EVENT"]:
+            continue
+
+        raw_name = it.get("company_name", "")
+        raw_sym = it.get("symbol", "")
+        grounded = resolve_entity(raw_name, symbol=raw_sym)
+        if not grounded and not raw_sym:
+            continue
+
+        it_copy = dict(it)
+        if grounded:
+            official_ticker, official_name = grounded
+            it_copy["ticker"] = official_ticker
+            it_copy["company_name"] = official_name
+        else:
+            clean_sym = raw_sym.replace(".NS", "").replace(".BO", "").strip()
+            it_copy["ticker"] = clean_sym or raw_name
+
+        stock_candidates.append(it_copy)
+
+    # Sort strictly by descending research importance score / materiality score
+    def get_cand_score(x):
+        sc = x.get("research_scores")
+        if isinstance(sc, dict):
+            return float(sc.get("total_score", sc.get("research_importance_score", 0.0)))
+        if "research_importance_score" in x:
+            return float(x["research_importance_score"])
+        return float(x.get("materiality_score", 0.0))
+
+    stock_candidates.sort(key=get_cand_score, reverse=True)
+
+    if not stock_candidates:
+        return "No verified corporate disclosures available"
+
     lines = []
-    lines.append("=" * 60)
-    lines.append("        🇮🇳 FUNDAMENTAL NEWS & ANALYSIS")
-    lines.append("        Indian Equity Market")
-    lines.append(f"        {report_date_str}")
-    lines.append("=" * 60)
-    lines.append("")
-    lines.append("TOP NEWS")
-    lines.append("")
+    for idx, it in enumerate(stock_candidates, start=1):
+        ticker = it.get("ticker") or it.get("symbol", "").replace(".NS", "").replace(".BO", "") or it.get("company_name", "")
+        direction = it.get("fundamental_direction") or it.get("direction", "Positive")
+        reason = build_one_line_reason(it)
+        lines.append(f"{idx}. {ticker} — {direction} — {reason}")
 
-    if not items:
-        lines.append("No material fundamental developments passed quality gating today.")
-        lines.append("")
-    else:
-        for i, item in enumerate(items, start=1):
-            cand_type = item.get("candidate_type")
-            if cand_type == "POLICY_EVENT":
-                clean_headline = re.sub(r"[\r\n]+", " ", str(item.get("headline", ""))).strip()
-                summary = re.sub(r"[\r\n]+", " ", str(item.get("what_happened", ""))).strip()
-                sources = re.sub(r"[\r\n]+", " ", str(item.get("sources", ""))).strip()
-                beneficiaries = item.get("key_beneficiaries", [])
-
-                lines.append(f"{i}. [POLICY & REGULATORY] {clean_headline}")
-                lines.append(f"   {summary}")
-                lines.append("")
-                lines.append("   Key Beneficiaries / Impacted:")
-                for b in beneficiaries:
-                    b_sym = b.get("symbol", "")
-                    b_name = b.get("name", "")
-                    b_imp = b.get("impact", "")
-                    lines.append(f"   • {b_sym} ({b_name}) — {b_imp}")
-                lines.append("")
-                lines.append("   Sources:")
-                lines.append(f"   {sources}")
-                lines.append("")
-                lines.append("-" * 60)
-                lines.append("")
-                continue
-
-            elif cand_type == "MACRO_EVENT":
-                macro_text = item.get("macro_one_liner") or f"{item.get('headline')} — {item.get('fundamental_direction')} for {item.get('affected_sector')}"
-                sources = re.sub(r"[\r\n]+", " ", str(item.get("sources", ""))).strip()
-                lines.append(f"{i}. [MACRO CONTEXT] {macro_text}")
-                lines.append("   Sources:")
-                lines.append(f"   {sources}")
-                lines.append("")
-                lines.append("-" * 60)
-                lines.append("")
-                continue
-
-            clean_ticker = item.get("symbol", "").replace(".NS", "").replace(".BO", "")
-            price = item.get("closing_price")
-            if price is not None and isinstance(price, (int, float)) and price > 0:
-                price_str = f"₹{int(price):,}" if float(price).is_integer() else f"₹{price:,.2f}"
-                company_header = f"{item.get('company_name')} ({clean_ticker}) — {price_str} — {item.get('fundamental_direction')}"
-            else:
-                company_header = f"{item.get('company_name')} ({clean_ticker}) — {item.get('fundamental_direction')}"
-            
-            clean_headline = re.sub(r"[\r\n]+", " ", str(item.get("headline", ""))).strip()
-            what_happened = re.sub(r"[\r\n]+", " ", str(item.get("what_happened", ""))).strip()
-            why_it_matters = re.sub(r"[\r\n]+", " ", str(item.get("why_it_matters", ""))).strip()
-            fund_impact = re.sub(r"[\r\n]+", " ", str(item.get("fundamental_impact", ""))).strip()
-            fin_implication = re.sub(r"[\r\n]+", " ", str(item.get("key_financial_implication", ""))).strip()
-            time_horizon = re.sub(r"[\r\n]+", " ", str(item.get("time_horizon", ""))).strip()
-            sources = re.sub(r"[\r\n]+", " ", str(item.get("sources", ""))).strip()
-
-            lines.append(f"{i}. {company_header}")
-            lines.append(f"   {clean_headline}")
-            lines.append("")
-            lines.append("   What happened:")
-            lines.append(f"   {what_happened}")
-            lines.append("")
-            lines.append("   Why it matters:")
-            lines.append(f"   {why_it_matters}")
-            lines.append("")
-            lines.append("   Fundamental impact:")
-            lines.append(f"   {fund_impact}")
-            lines.append("")
-            lines.append("   Key financial implication:")
-            lines.append(f"   {fin_implication}")
-            lines.append("")
-            lines.append("   Time horizon:")
-            lines.append(f"   {time_horizon}")
-            lines.append("")
-            lines.append("   Sources:")
-            lines.append(f"   {sources}")
-            lines.append("")
-            lines.append("-" * 60)
-            lines.append("")
-
-    lines.append("=" * 60)
-    lines.append("TOP NEWS COMPLETE")
-    lines.append("=" * 60)
-
-    # Normalize entire text to ensure pure standard Unix newlines and zero carriage returns
     return "\n".join(lines).replace("\r\n", "\n").replace("\r", " ")

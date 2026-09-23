@@ -47,7 +47,7 @@ ROUTINE_FILING_PATTERNS = [
     r"\bregulation\s+10\s*\(\s*[56]\s*\)",
     r"\bregulation\s+31\s*\(\s*[1234]\s*\)",
     r"\bregulation\s+7\s*\(\s*2\s*\)",
-    # Routine AGM / EGM compliance & extensions
+    # Routine AGM / EGM compliance & extensions (accounting for spelling variants like extention)
     r"\bbusiness\s+responsibility\s+and\s+sustainability\s+report(?:ing)?\b",
     r"\bbrsr\b",
     r"\breg\.?\s*34\s*\(\s*1\s*\)\s+annual\s+report\b",
@@ -58,9 +58,21 @@ ROUTINE_FILING_PATTERNS = [
     r"\bintimation\s+of\s+(?:the\s+)?(?:agm|annual\s+general\s+meeting)\b",
     r"\bnotice\s+of\s+(?:the\s+)?(?:\d+(?:st|nd|rd|th)?\s+)?extraordinary\s+general\s+meeting\b",
     r"\bnotice\s+of\s+(?:the\s+)?egm\b",
-    r"\bextension\s+of\s+time\s+for\s+(?:holding\s+)?(?:the\s+)?(?:annual\s+general\s+meeting|agm)\b",
-    r"\bextension\s+of\s+agm\b",
-    r"\bapproval\s+for\s+extension\s+of\s+(?:time\s+for\s+holding\s+)?agm\b",
+    r"\bexten[st]ion\s+of\s+time\s+for\s+(?:holding\s+)?(?:the\s+)?(?:annual\s+general\s+meeting|agm)\b",
+    r"\bexten[st]ion\s+of\s+(?:time\s+for\s+)?agm\b",
+    r"\bexten[st]ion\s+of\s+time\b",
+    r"\bapproval\s+for\s+exten[st]ion\s+of\s+(?:time\s+for\s+holding\s+)?agm\b",
+    # Clerical / typographical errors and corrigendums
+    r"\bclerical\s+error\b",
+    r"\binadvertent\s+mention\b",
+    r"\btypographical\s+error\b",
+    r"\brectification\s+of\s+clerical\b",
+    r"\bcorrigendum\b",
+    # Routine share conversions & small trading approvals
+    r"\bconversion\s+of\s+(?:ncrps|ccps|preference\s+shares|debentures)\b",
+    r"\btrading\s+approval\s+for\s+[\d,]+\s+(?:equity\s+)?shares\b",
+    r"\btrading\s+approval\s+for\s+(?:allotment|conversion)\b",
+    r"\btrading\s+approval\b",
     # Routine ESOPs and stock option grants / allotments
     r"\bgrant\s+of\s+(?:options|stock\s+options|esops?|performance\s+stock\s+units|psus|rsus)\b",
     r"\ballotment\s+of\s+(?:equity\s+)?shares\s+(?:under|pursuant\s+to)\s+esop\b",
@@ -80,7 +92,12 @@ ROUTINE_FILING_PATTERNS = [
     r"\bpostponement\s+of\s+board\s+meeting\b",
     r"\brecord\s+date\s+for\s+(?:purpose\s+of\s+)?(?:final\s+)?dividend\b",
     r"\btrading\s+approval\s+for\s+conversion\s+of\s+partly\s+paid\b",
-    r"\bintimation\s+under\s+regulation\s+30\s+and\s+51\b.*?\bplease\s+refer\s+the\s+attachment\b"
+    r"\bintimation\s+under\s+regulation\s+30\s+and\s+51\b.*?\bplease\s+refer\s+the\s+attachment\b",
+    r"\battached\s+herewith\s+the\s+intimation\b",
+    r"\bplease\s+find\s+enclosed\s+herewith\s+the\s+intimation\b",
+    r"\bplease\s+find\s+attached\s+herewith\b",
+    r"\bintimation\s+of\s+the\s+same\b",
+    r"\bsubmission\s+of\s+disclosure\s+under\s+regulation\s+30\b"
 ]
 
 ROUTINE_REGEX = re.compile("|".join(ROUTINE_FILING_PATTERNS), re.IGNORECASE)
@@ -129,6 +146,13 @@ CLICKBAIT_PATTERNS = [
     r"\bwhere\s+to\s+invest\b",
     r"\bhow\s+to\s+invest\b",
     r"\b(?:indian\s+)?equity\s+markets?\s+(?:hit|drop|fall|plunge|tumble|slip|gain|rise|climb|end|close)\b",
+    r"\bpenny\s+stocks?\b",
+    r"\bpenny\s+stock\s+under\s+\d+\b",
+    r"\bunder\s+\d+\s+rupees\b",
+    r"\bdividend\s+(?:stocks?\s+)?alert\b",
+    r"\bamong\s+(?:nearly\s+)?\d+\s+stocks\b",
+    r"\b\d+\s+stocks?\s+for\s+dividends?\b",
+    r"\bshares?\s+(?:to\s+buy|to\s+own)\s+for\s+dividends?\b",
     r"\bmarkets?\s+hit\s+(?:a\s+)?\w+[-:]\s*week\s+low\b",
     r"\bwhy\s+(?:the\s+)?stock\s+market\s+is\s+down\b",
     r"\bmarket\s+wrap(?:up)?\b"
@@ -169,12 +193,62 @@ MATERIAL_KEYWORDS = [
     r"\bupgrades?\b.*?\b(?:rating|ratings|debt)\b", r"\bdowngrades?\b.*?\b(?:rating|ratings|debt)\b",
     r"\bdebt\s+reduction\b", r"\brepayment\b", r"\bprepayment\b",
     r"\bresignation\b", r"\b(?:appoints?|appointed)\s+(?:new\s+)?(?:ceo|md|cfo|chief\s+executive|managing\s+director)\b", r"\bnew\s+ceo\b", r"\bnew\s+md\b", r"\bauditor\s+resigned\b",
-    r"\bprice\s+hike\b", r"\btariff\s+revision\b", r"\bprice\s+increase\b",
+    r"\bprice\s+hike\b", r"\btariff\s+revision\b", r"\bprice\s+increase\b", r"\braises?\s+fees?\b", r"\bfee\s+(?:hike|revision|increase)\b", r"\bbaggage\b",
     r"\bprocurement\b", r"\bdac\b", r"\bdefence\s+acquisition\b", r"\bl1\s+bidder\b", r"\blowest\s+bidder\b", r"\blakh\s+crore\b",
     r"\bcrude\s+oil\b", r"\bbrent\s+crude\b", r"\boil\s+tops\b", r"\boil\s+surges\b", r"\bcopper\b"
 ]
 
 MATERIAL_REGEX = re.compile("|".join(MATERIAL_KEYWORDS), re.IGNORECASE)
+
+
+def has_concrete_actionable_structure(title: str, summary: str = "") -> Tuple[bool, str]:
+    """
+    Real-Content Check:
+    Verifies that the corporate announcement contains concrete operational details,
+    rejecting empty filing attachment boilerplate (e.g. 'attached herewith the intimation of the same').
+    """
+    text = f"{title} {summary}".strip()
+    clean_summary = summary.strip()
+
+    # Empty filing attachment patterns
+    empty_filing_pattern = (
+        r"\b(?:attached\s+herewith\s+the\s+intimation|enclosed\s+herewith\s+the\s+intimation|"
+        r"please\s+find\s+enclosed\s+herewith|please\s+find\s+attached\s+herewith|"
+        r"attached\s+herewith\s+intimation|intimation\s+of\s+the\s+same|"
+        r"please\s+refer\s+(?:the\s+)?attachment|refer\s+attachment)\b"
+    )
+
+    empty_summary_boilerplate = [
+        r"^(?:attached|attaching|enclosed|enclosing|please\s+find)\s+herewith\s+(?:the\s+)?(?:intimation|copy|disclosure)(?:\s+of\s+the\s+same)?\.?$",
+        r"^(?:please\s+find\s+enclosed|attached\s+herewith)\s+(?:copy\s+of\s+)?(?:the\s+)?(?:intimation|disclosure|letter|announcement)\.?$",
+        r"^(?:general\s+updates|updates|announcement)\b.*?\b(?:attached\s+herewith|refer\s+attachment)\.?$"
+    ]
+    is_pure_boilerplate_summary = any(re.search(bp, clean_summary, re.IGNORECASE) for bp in empty_summary_boilerplate)
+    is_attachment_boilerplate = is_pure_boilerplate_summary or bool(re.search(empty_filing_pattern, text, re.IGNORECASE))
+
+    # Identifiable fundamental action verbs or catalyst keywords
+    action_verb_pattern = (
+        r"\b(?:bags?|bagged|secures?|secured|wins?|won|awarded|receives?|received|gets?|"
+        r"signs?|signed|inks?|inked|entered\s+into|approves?|approved|clears?|cleared|"
+        r"commissions?|commissioned|inaugurates?|inaugurated|acquires?|acquired|"
+        r"launches?|launched|invests?|invested|hikes?|hiked|raises?|raised|cuts?|slashed|"
+        r"emerges?|emerged|lowest\s+bidder|l1\s+bidder|appointed\s+date|offloads?|sells?|sold|divests?|divested|"
+        r"resigned|resignation|expands?|expanded|commences?|commenced|deploys?|deployed|"
+        r"orders?\b|contracts?\b|projects?\b|tenders?\b|form\s+483|observations?|inspection|"
+        r"net\s+profit|revenue|ebitda|pat|dividend|bonus|qip|rights\s+issue|ratings?)\b"
+    )
+
+    has_action_in_title = bool(re.search(action_verb_pattern, title, re.IGNORECASE))
+    has_action_in_text = bool(re.search(action_verb_pattern, text, re.IGNORECASE))
+
+    if is_attachment_boilerplate and not has_action_in_title:
+        return False, "Discarded: core announcement contains zero extractable action or subject (empty filing attachment boilerplate)."
+
+    # Reject standalone title that is purely attachment boilerplate
+    if re.search(r"^[^—–\-]+[—–\-]\s*(?:attached\s+herewith|enclosed\s+herewith|intimation\s+of\s+the\s+same|please\s+refer)\b", title, re.IGNORECASE) and not has_action_in_title:
+        return False, "Discarded: core announcement contains zero extractable action or subject (empty filing attachment boilerplate)."
+
+    return True, "Valid concrete action structure."
 
 
 def is_material_fundamental_event(title: str, summary: str = "", is_primary_exchange_filing: bool = False, published_at: str = "") -> Tuple[bool, str]:
@@ -187,6 +261,11 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
     text = f"{title} {summary}".strip()
     if len(text) < 15:
         return False, "Discarded: text too short to contain substantive corporate development."
+
+    # Real-content check: must have concrete actionable structure
+    has_structure, struct_reason = has_concrete_actionable_structure(title, summary)
+    if not has_structure:
+        return False, struct_reason
 
     # 1. Freshness Check: Reject stale historical quarterly results
     if not is_primary_exchange_filing:
@@ -201,7 +280,7 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
 
     # Identify if a primary corporate or sovereign fundamental catalyst exists
     has_primary_catalyst = bool(re.search(
-        r"\b(?:dac\b|defence\s+acquisition|procurement|lakh\s+crore|orders?\b|contracts?\b|bags?\b|secures?\b|wins?\b|loi\b|loa\b|letter\s+of\s+award|epc\b|usfda\b|fda\b|observations?\b|acquisition\b|merger\b|amalgamation\b|toll\s+revenue|toll\s+collection|preferential\s+issue|rating\s+upgrade|upgrades?\s+rating|crude\s+oil|oil\s+tops|oil\s+surges|resignation\b.*?\b(?:chairman|auditor|ceo|md))\b",
+        r"\b(?:dac\b|defence\s+acquisition|procurement|lakh\s+crore|orders?\b|contracts?\b|bags?\b|secures?\b|wins?\b|loi\b|loa\b|letter\s+of\s+award|epc\b|usfda\b|fda\b|observations?\b|acquisition\b|merger\b|amalgamation\b|toll\s+revenue|toll\s+collection|preferential\s+issue|rating\s+upgrade|upgrades?\s+rating|crude\s+oil|oil\s+tops|oil\s+surges|raises?\s+fees?|fee\s+(?:hike|revision)|baggage\s+fee|resignation\b.*?\b(?:chairman|auditor|ceo|md))\b",
         title,
         re.IGNORECASE
     ))
@@ -213,19 +292,20 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
             return False, "Discarded: multi-company market roundup article lacking single-company catalyst focus."
         
         parts = title.split(" - ")[0]
-        if parts.count(",") >= 2 and any(conj in parts.lower() for conj in [" and ", " & ", "order sparks", "shares in focus", "details here"]):
+        # Only discard if multiple stocks/companies are being listed, not single-company itemized actions
+        if re.search(r"\b(?:stocks?|shares?|brokerages?|losers?|gainers?)\b", parts, re.IGNORECASE) and parts.count(",") >= 2 and any(conj in parts.lower() for conj in [" and ", " & ", "order sparks", "shares in focus", "details here"]):
             return False, "Discarded: multi-company roundup headline lacking single-company focus."
 
     # 3. Broker Target Price Check: Reject articles whose primary content is a broker recommendation
     # (unless an actual primary contract win or corporate action is the underlying catalyst)
     if (BROKER_REGEX.search(title) or BROKER_REGEX.search(text)) and not is_primary_exchange_filing:
-        if not has_primary_catalyst and not re.search(r"\b(?:bags|secures|wins|contract|order|fda|acquires|plant|quarterly\s+results)\b", title, re.IGNORECASE):
+        if not has_primary_catalyst and not re.search(r"\b(?:bags|secures|wins|contract|order|fda|acquires|plant|quarterly\s+results|raises?\s+fees?)\b", title, re.IGNORECASE):
             return False, "Discarded: broker target-price revision or recommendation without primary corporate catalyst."
 
     # 4. Pure Price Movement Check without Fundamental Catalyst (Section 18, Test 4)
     # E.g. "Company shares rise 8%", "stock rallies 5%", "locked in upper circuit" without operational reason
     if re.search(r"\b(?:shares?\s+(?:rise|rises|jump|jumps|surge|surges|fall|falls|slide|slides|gain|gains|slump|slumps|rally|rallies)\b|(?:hits?|locked\s+in)\s+(?:upper|lower)\s+circuit)\b", title, re.IGNORECASE):
-        if not has_primary_catalyst and not re.search(r"\b(?:order|contract|epc|project|pat|profit|results|revenue|ebitda|fda|usfda|approval|acquisition|merger|capex|plant|tender|l1|deal|rating\s+upgrade|rating\s+downgrade|procurement)\b", text, re.IGNORECASE):
+        if not has_primary_catalyst and not re.search(r"\b(?:order|contract|epc|project|pat|profit|results|revenue|ebitda|fda|usfda|approval|acquisition|merger|capex|plant|tender|l1|deal|rating\s+upgrade|rating\s+downgrade|procurement|fee\s+hike)\b", text, re.IGNORECASE):
             return False, "Discarded: market price movement only; lacks identifiable underlying fundamental corporate catalyst."
 
     # 5. Clickbait and promotional lists
@@ -235,6 +315,18 @@ def is_material_fundamental_event(title: str, summary: str = "", is_primary_exch
     # 5.1 Rumor denials, speculative talks denial, media report clarifications denying transactions
     if re.search(r"\b(?:denies|denied|denying)\s+(?:speculative|rumou?rs?|reports?|talks?|takeover|acquisition|merger|stake\s+sale)\b|\b(?:no\s+such\s+proposal|no\s+negotiations?|factually\s+(?:incorrect|baseless)|clarification\s+on\s+rumou?rs?)\b", text, re.IGNORECASE):
         return False, "Discarded: company denies speculative reports / rumors; no fundamental transaction."
+
+    # 5.2 Routine CCI / Antitrust Clearance Check:
+    # Reject routine Competition Commission of India clearance notices / PIB releases announcing
+    # antitrust approval of share acquisitions, combinations, or minority stake purchases
+    if re.search(
+        r"\b(?:cci\s+(?:approves?|clears?|nod\s+for|greenlights?)|competition\s+commission\s+(?:of\s+india\s+)?(?:approves?|clears?))\b.*?\b(?:acquisition|merger|stake|combination|amalgamation|shareholding|shares\s+in)\b|"
+        r"\b(?:cci\s+approves?\s+(?:proposed\s+)?combination|pib\s+delhi\s+cci\s+approves?)\b|"
+        r"^(?:pib\s+.*?)?cci\s+approves?\s+acquisition\s+of\s+(?:shares|stake)\b",
+        text,
+        re.IGNORECASE
+    ):
+        return False, "Discarded: routine antitrust regulatory clearance / CCI combination approval notice."
 
     # 6. Check routine compliance filings
     if ROUTINE_REGEX.search(text):

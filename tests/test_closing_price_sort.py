@@ -76,8 +76,12 @@ def test_final_top_news_sorted_by_closing_price_ascending():
     assert items[2]["company_name"] == "Company High"
     assert items[2]["closing_price"] == 2830.0
 
-    # Verify formatted report output
+    # Verify formatted report output (Ranked ticker list format)
     report_text = format_top_news_report("03 September 2026", items)
-    assert "1. Company Low (LOW) — ₹185 — Positive" in report_text
-    assert "2. Company Mid (MID) — ₹617 — Negative" in report_text
-    assert "3. Company High (HIGH) — ₹2,830 — Positive" in report_text
+    assert "LOW — Positive" in report_text
+    assert "MID — Negative" in report_text
+    assert "HIGH — Positive" in report_text
+    assert "₹185" not in report_text
+    assert "What happened:" not in report_text
+    assert "Why it matters:" not in report_text
+    assert "Sources:" not in report_text

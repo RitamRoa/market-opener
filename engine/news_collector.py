@@ -54,6 +54,18 @@ FEED_REGISTRY = [
         "url": "https://news.google.com/rss/search?q=crude+oil+Brent+petrol+diesel+OMC+refiners+copper+steel+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
     },
     {
+        "source": "Google News (Energy Infrastructure & OPEC)",
+        "url": "https://news.google.com/rss/search?q=(Middle+East+OR+Iran+OR+crude+oil+OR+Brent+OR+OPEC+OR+Trump+OR+tariff+OR+Strait+of+Hormuz)+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+    {
+        "source": "Google News (Green Energy, BESS & Infra)",
+        "url": "https://news.google.com/rss/search?q=(battery+storage+OR+BESS+OR+HiTHIUM+OR+Advait+OR+shipyard+OR+highway+OR+appointed+date)+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+    {
+        "source": "Google News (Capital Markets & Block Deals)",
+        "url": "https://news.google.com/rss/search?q=(block+deal+OR+stake+sale+OR+PE+exit+OR+Lenskart+OR+promoter+holding)+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
+    },
+    {
         "source": "Google News (Industry Dispatches)",
         "url": "https://news.google.com/rss/search?q=toll+revenue+auto+sales+power+demand+cement+dispatches+telecom+India+when:2d&hl=en-IN&gl=IN&ceid=IN:en",
     }
@@ -193,6 +205,12 @@ def build_historical_feed_registry(target_date: str) -> List[Dict[str, str]]:
         ("SEBI / Regulators", f"site:sebi.gov.in after:{prev_day} before:{next_day}"),
         ("Google News (Corporate Actions)", f"Nifty stocks earnings acquisition contract India after:{prev_day} before:{next_day}"),
         ("Google News (Orders & Disclosures)", f"NSE BSE stocks results order announcement India after:{prev_day} before:{next_day}"),
+        ("Google News (Energy & Windfall Tax)", f"(windfall tax OR petroleum OR crude OR refiners OR MRPL OR ONGC) India after:{prev_day} before:{next_day}"),
+        ("Google News (Global Geopolitics & Macro)", f"(Middle East OR Iran OR Israel OR Red Sea OR Strait of Hormuz OR Trump OR tariff OR crude oil OR Brent OR OPEC) after:{prev_day} before:{next_day}"),
+        ("Google News (Green Energy, BESS & Power)", f"(battery storage OR BESS OR HiTHIUM OR Advait OR solar OR wind OR Petronet OR biogas) India after:{prev_day} before:{next_day}"),
+        ("Google News (Infra, Highways & Tolls)", f"(appointed date OR concession OR highway OR GR Infra OR UPEIDA OR toll) India after:{prev_day} before:{next_day}"),
+        ("Google News (Defence & Shipbuilding)", f"(shipbuilding OR shipyard OR Mazagon OR Mazagaon OR defence MoU OR navy) India after:{prev_day} before:{next_day}"),
+        ("Google News (Capital Markets & Block Deals)", f"(block deal OR stake sale OR PE exit OR Lenskart OR promoter sale OR QIP) India after:{prev_day} before:{next_day}"),
     ]
 
     registry = []

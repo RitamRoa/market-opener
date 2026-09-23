@@ -603,25 +603,50 @@ The engine follows an open, merit-based candidate funnel optimizing for **action
    - If only 2 actionable stocks exist initially, the engine evaluates qualified secondary candidates (Tier B with verified commercial categories) to supplement up to 4.
    - **Quality Beats Minimum**: If only 2 or 3 genuinely actionable stocks exist after evaluating the pool, the engine outputs 2 or 3 rather than inventing weak or irrelevant stories simply to reach 5.
 
-### 7.2 Closing Price Ascending Sorting (`engine/fna_pipeline.py`):
+### 7.2 Best-Effort Price Fetch & Gate Removal (`engine/fna_pipeline.py`):
 Once the final actionable stock set has been determined strictly on fundamental merit:
-1. Fetch the closing price for each selected stock for the requested date (or latest prior trading session).
-2. Omit entities that lack traded market prices (e.g., draft prospectus filings, unlisted subsidiaries).
-3. Sort the final list strictly from:
-   $$\mathbf{LOWEST\ CLOSING\ PRICE} \longrightarrow \mathbf{HIGHEST\ CLOSING\ PRICE}$$
+1. Fetch closing prices on a best-effort basis for the requested date.
+2. **Zero-Omission Principle**: Candidates passing fundamental scoring and materiality checks are **never omitted** if price lookup fails or if the entity is unlisted / recently listed. Price lookups are non-blocking and purely auxiliary.
+
+### 7.3 Simplified Sharekhan-Style Flowing Prose Output Format:
+Matching actual Sharekhan Daily FNA bulletins, the output eschews multi-section boilerplate templates (`What happened:`, `Why it matters:`, etc.) in favor of clean, institutional flowing prose:
+1. **Header Format**:
+   $$\text{Company Name} \text{ — } \text{Positive / Negative}$$
+   - **No price shown in the header** — just the clean company name and the directional tag at the end.
+2. **Narrative Flow**:
+   - **2 to 5 sentences per item**: Natural, institutional journalistic prose.
+   - **Zero section headers**: Mechanics, commercial scale, and financial implications are folded directly into the sentences.
+   - **Factual & Quantified**: Deal values (₹ Cr), execution horizons, milestone billing, and balance sheet impacts are embedded organically.
+3. **Multi-Company Policy & Regulatory Events**:
+   - Captures sector-wide policy moves (RBI, SEBI, NPCI circulars, duty/tariff changes).
+   - Generates headline, flowing policy summary, and a bulleted list of `Key Beneficiaries / Impacted` stocks.
+4. **Standalone Macro Triggers**:
+   - One-liner macro trigger + affected sector + directional sentiment (e.g. Brent crude spikes, US 10Y yield surges).
 
 Example Output:
 ```text
-1. Orient Green Power Company Ltd (GREENPOWER) — ₹9.03 — Positive
-2. NBCC India Ltd (NBCC) — ₹81.20 — Positive
-3. Godavari Biorefineries Limited (GODAVARIB) — ₹242.83 — Positive
-4. Praj Industries Limited (PRAJIND) — ₹313.95 — Positive
-5. Exide Industries Ltd (EXIDEIND) — ₹417.90 — Positive
-6. ACME Solar Holdings Ltd (ACMESOLAR) — ₹422.80 — Positive
-7. Bharat Forge Ltd (BHARATFORG) — ₹1,875.20 — Positive
-8. Solar Industries India Ltd (SOLARINDS) — ₹18,905 — Negative
+1. Mazagon Dock Shipbuilders Ltd — Positive
+   Mazagon Dock Shipbuilders has secured a major offshore pipeline contract valued at ₹1,486 crore from ONGC. Securing this contract expands the executable order book and provides firm revenue visibility for execution over the contract delivery schedule. The addition strengthens its medium-term pipeline, with milestone billing minimizing working capital strain.
+
+------------------------------------------------------------
+
+2. Neogen Chemicals Ltd — Positive
+   Neogen Chemicals has entered into a strategic joint venture with MU Ionic Solutions for electric vehicle battery electrolyte manufacturing. Entering into this agreement combines technical capabilities and market access to address target automotive and energy storage segments. Commercial realization will commence upon capitalization and operational ramp-up of the planned manufacturing facility.
+
+------------------------------------------------------------
+
+3. [POLICY & REGULATORY] NPCI and RBI mandate 1.1% interchange fee on UPI merchant transactions — Positive
+   The Reserve Bank of India and NPCI have mandated a 1.1% interchange fee on merchant transactions conducted via prepaid payment instruments above ₹2,000. This measure enhances unit economics and interchange revenue for digital payment aggregators and acquiring banks.
+
+   Key Beneficiaries / Impacted:
+   • PAYTM (One97 Communications Ltd) — Positive
+   • SBIN (State Bank of India) — Positive
+   • HDFCBANK (HDFC Bank Ltd) — Positive
+
+------------------------------------------------------------
+
+4. [MACRO CONTEXT] US 10-Year Treasury Yield surges 18 bps to 4.38% — Negative for Emerging Market Equities
 ```
-*Closing price has zero influence on fundamental actionability or ranking.*
 
 ---
 
@@ -693,3 +718,48 @@ Final TOP NEWS: [N_7]
 5. **Fundamental Candidates Evaluated**: Canonical candidates passing two-pass consistency validation, synthesized, and scored via the 10-Factor Research Model.
 6. **Actionable Candidates**: Candidates meeting Model 7 criteria with verified directional fundamental catalysts (`Positive` or `Negative` only).
 7. **Final TOP NEWS**: Final traded stocks selected by dynamic ranking, validated for traded closing prices, and sorted ascending from lowest to highest closing price.
+
+---
+
+## 11. Production Polish & Real-World Alignment Upgrades
+
+To ensure complete parity with institutional intelligence desks (e.g. Sharekhan's daily Fundamental News & Analysis bulletin), the engine incorporates five specialized real-world analytical enhancements:
+
+### 11.1 Cross-Day Deduplication & Persistent Fingerprint Store
+- **Problem**: Stale corporate developments (e.g. an acquisition announcement from day $T-1$) can resurface on day $T$ when follow-up opinion articles are published, displacing genuinely new corporate developments.
+- **Solution**: The engine persists all surfaced developments into an SQLite store (`fna_surfaced_events`) indexed by:
+  $$\text{Fingerprint} = \text{SHA256}(\text{Symbol} \parallel \text{EventType} \parallel \text{SignificantTokens})$$
+- **Recurrence Logic**: On day $T$, candidate events are checked against the prior 2 trading days. If token Jaccard similarity exceeds $35\%$ and no material delta (e.g. $\ge 15\%$ contract value change, regulatory clearance) is found, the candidate is omitted with a logged diagnostic reason:
+  $$J(\mathcal{T}_{\text{cand}}, \mathcal{T}_{\text{surfaced}}) = \frac{|\mathcal{T}_{\text{cand}} \cap \mathcal{T}_{\text{surfaced}}|}{|\mathcal{T}_{\text{cand}} \cup \mathcal{T}_{\text{surfaced}}|} \ge 0.35 \implies \text{Omitted as Stale Recurrence}$$
+
+### 11.2 End-to-End Company Tracing (`--trace-company "<Name>"`)
+- **Diagnostic Transparency**: Enables analysts to trace any specific corporate entity across all 6 pipeline stages:
+  1. *Ingestion*: Matched raw news and regulatory filings with exact timestamps and source feeds.
+  2. *Noise Filter*: Survival status and specific rejection rationale if discarded.
+  3. *Entity Resolution*: Assigned NSE/BSE symbol, canonical sector, and operational beneficiary role.
+  4. *Clustering*: Multi-source canonical cluster assignment and deduplication grouping.
+  5. *Scoring & Actionability*: Exact 10-factor score breakdown, materiality tier, and actionability justification.
+  6. *Final Selection*: Inclusion in TOP NEWS or threshold ranking cut status.
+- **Robust Entity Matching**: Employs symbol mapping, alias resolution, token subset verification, and sequence similarity fallback ($\ge 0.75$ ratio), guaranteeing accurate diagnosis regardless of spelling variations (e.g., *Mazagaon Dock* vs. *Mazagon Dock*).
+
+### 11.3 Global Macro & Domestic Market Commentary
+- **Candidate Type**: `MACRO_COMMENTARY`
+- **Mechanism**: Ingests macroeconomic and geopolitical developments independently (crude oil fluctuations, central bank policy rate trajectories, foreign institutional sentiment, and GIFT Nifty opening indicators).
+- **Prose Delivery**: Generates a unified 2–4 sentence narrative matching Sharekhan's introductory tone. Formatted cleanly with zero stock tickers and zero directional sentiment tags.
+
+### 11.4 Sector Cause-and-Effect Causal Transmission Engine
+- **Candidate Type**: `SECTOR_CAUSAL_COMMENTARY`
+- **Mechanism**: Evaluates second-order economic ripple effects from macroeconomic and fiscal policies:
+  - *US Interest Rate Trajectory* $\longrightarrow$ North American enterprise IT spend moderation $\longrightarrow$ Elongated deal conversion cycles for Indian Tier-1 IT services.
+  - *Windfall Tax (SAED) Cuts* $\longrightarrow$ Elimination of export levy friction $\longrightarrow$ Margin expansion across domestic refiners and upstream producers.
+  - *Crude Oil Spikes* $\longrightarrow$ Input cost inflation in ATF and petrochemical monomers $\longrightarrow$ Near-term margin friction for domestic airlines and paint manufacturers.
+- **Human Oversight**: Every generated causal chain is transparently tagged with `[Requires Review: 2nd-order transmission]`.
+
+### 11.5 Steep Log-Scale Contract Value & Strategic Significance Model
+- **Scale Hierarchy**: Prevents mega infrastructure and defense agreements from being ranked alongside routine operational contracts:
+  - $\ge ₹10,000\text{ Cr}$: $\text{Materiality} = 10.0$, $\text{FinSig} = 10.0$, $\text{StratSig} = 9.8$, $\text{DealScaleBoost} = +0.85$
+  - $\ge ₹2,500\text{ Cr}$: $\text{Materiality} = 9.8$, $\text{FinSig} = 9.5$, $\text{StratSig} = 9.0$, $\text{DealScaleBoost} = +0.60$
+  - $\ge ₹1,000\text{ Cr}$: $\text{Materiality} = 9.2$, $\text{FinSig} = 9.0$, $\text{DealScaleBoost} = +0.40$
+  - $\ge ₹300\text{ Cr}$: $\text{Materiality} = 8.5$, $\text{FinSig} = 8.2$, $\text{DealScaleBoost} = +0.20$
+  - $< ₹100\text{ Cr}$: $\text{FinSig} = 6.2$, $\text{DealScaleBoost} = -0.30$ (routine order discount unless $\ge 15\%$ revenue)
+- **Outcome**: Mega agreements (such as Mazagon Dock's ₹27,000 Cr shipbuilding MoU) decisively outrank routine smaller ₹63 Cr domestic orders.

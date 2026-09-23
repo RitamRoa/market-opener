@@ -30,13 +30,17 @@ def test_price_fetch_gate_removal_preserves_candidate():
         }
     ]
     report = format_top_news_report("16 September 2026", items)
-    assert "Saatvik Green Energy Ltd (SAATVIK) — Positive" in report
-    assert "Secures ₹450 Cr solar module contract" in report
+    assert "SAATVIK" in report
+    assert "Positive" in report
+    assert "₹450 Cr" in report
     assert "₹None" not in report
+    assert "What happened:" not in report
+    assert "Why it matters:" not in report
+    assert "Sources:" not in report
 
 
 def test_policy_event_detection_and_formatting():
-    """Policy notifications affecting sectors must resolve to multi-company beneficiary entries."""
+    """Policy notifications affecting sectors must resolve to multi-company beneficiary entries and be omitted from stock list."""
     policy_ev = {
         "title": "NPCI and RBI mandate 1.1% interchange fee on UPI merchant transactions above Rs 2000",
         "summary": "The Reserve Bank of India and NPCI issued a circular introducing a 1.1% interchange fee on prepaid merchant UPI transactions.",
@@ -50,12 +54,9 @@ def test_policy_event_detection_and_formatting():
     assert len(detected["key_beneficiaries"]) >= 3
     assert any(b["symbol"] == "PAYTM" for b in detected["key_beneficiaries"])
 
-    # Test report formatting
+    # Stock list report drops policy items without tickers
     report = format_top_news_report("16 September 2026", [detected])
-    assert "[POLICY & REGULATORY]" in report
-    assert "Key Beneficiaries / Impacted:" in report
-    assert "PAYTM" in report
-    assert "SBIN" in report
+    assert "[POLICY & REGULATORY]" not in report
 
 
 def test_macro_item_detection_and_formatting():
@@ -84,11 +85,9 @@ def test_macro_item_detection_and_formatting():
     assert detected_crude["candidate_type"] == "MACRO_EVENT"
     assert "Paints" in detected_crude["affected_sector"] or "Aviation" in detected_crude["affected_sector"]
 
-    # Formatting verification
+    # Stock list report drops macro items (they have no ticker)
     report = format_top_news_report("16 September 2026", [detected_yield, detected_crude])
-    assert "[MACRO CONTEXT]" in report
-    assert "US 10-year Treasury yield crosses 5%" in report
-    assert "Negative for NBFCs & Growth Equities" in report
+    assert "[MACRO CONTEXT]" not in report
 
 
 def test_tightened_specificity_scoring():
@@ -133,3 +132,65 @@ def test_tightened_specificity_scoring():
     is_act_vague, reason = is_genuinely_actionable_candidate(vague_cand)
     assert is_act_vague is False
     assert "purely qualitative" in reason.lower() or "threshold" in reason.lower()
+
+
+def test_simplified_flowing_prose_output_format():
+    """
+    Validates Gap 4 fix:
+    - 2-5 flowing sentences per item matching Sharekhan's actual style.
+    - Zero section headers (What happened, Why it matters, Fundamental impact, etc.).
+    - No price shown in the header — just company name and a Positive/Negative tag.
+    - Numbers and mechanism folded directly into the narrative.
+    """
+    items = [
+        {
+            "company_name": "Mazagon Dock Shipbuilders Ltd",
+            "symbol": "MAZDOCK.NS",
+            "headline": "Secures ₹1,486 Cr offshore pipeline contract from ONGC",
+            "what_happened": "Mazagon Dock Shipbuilders has announced: Mazagon Dock bags Rs 1,486-crore contract from ONGC.",
+            "why_it_matters": "Securing this contract valued at ₹1,486.0 Cr from ONGC expands the executable order book and provides firm revenue visibility.",
+            "fundamental_impact": "Positive — reinforces executable order book and revenue visibility.",
+            "key_financial_implication": "The contract adds ₹1,486.0 Cr to executable order backlog, with revenue recognized across execution milestones over the project period.",
+            "time_horizon": "Medium Term",
+            "sources": "NSE Announcement",
+            "fundamental_direction": "Positive",
+            "closing_price": 2236.0,
+        },
+        {
+            "company_name": "Neogen Chemicals Ltd",
+            "symbol": "NEOGEN.NS",
+            "headline": "Signs JV agreement with MU Ionic Solutions for EV battery electrolytes",
+            "what_happened": "Neogen Chemicals has entered into an agreement with MU Ionic Solutions for electrolyte manufacturing technology.",
+            "why_it_matters": "Entering into a Joint Venture agreement with MU Ionic Solutions establishes strategic collaboration, combining technical capabilities and market access.",
+            "fundamental_impact": "Positive — establishes strategic commercial alignment.",
+            "key_financial_implication": "Financial realization will depend on capitalization of the JV entity and subsequent commercial production ramp-up.",
+            "time_horizon": "Long Term",
+            "sources": "BSE Filing",
+            "fundamental_direction": "Positive",
+            "closing_price": 1820.0,
+        },
+    ]
+
+    report = format_top_news_report("16 September 2026", items)
+
+    # 1. Verify ranked ticker output format: 1. TICKER — Positive/Negative — one-line reason
+    assert "1. MAZDOCK — Positive —" in report
+    assert "2. NEOGEN — Positive —" in report
+    assert "₹2,236" not in report
+    assert "₹1,820" not in report
+
+    # 2. Verify complete absence of multi-section template headers
+    for forbidden_header in [
+        "What happened:",
+        "Why it matters:",
+        "Fundamental impact:",
+        "Key financial implication:",
+        "Time horizon:",
+        "Sources:",
+    ]:
+        assert forbidden_header not in report, f"Section header '{forbidden_header}' must not appear in report"
+
+    # 3. Verify one-line reasons fold numbers and key figures
+    assert "₹1,486" in report
+    assert "MU Ionic Solutions" in report
+

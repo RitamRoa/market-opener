@@ -6,348 +6,50 @@
 
 TOP NEWS
 
-1. Superior Finlease Ltd (539835) — ₹1.65 — Positive
-   Superior Finlease Ltd - 539835 - Clarification Regarding Inadvertent Mention Of Preferential Issue Amount In Financial Statements For FY 2025-26
-
-   What happened:
-   Superior Finlease Ltd has announced: We wish to informe that the clerical error in the Financial Statment for the FY 2025-26 has been rectifed as inadvertently mentioned preferantial issue amount, still pending for allotment.
-
-   Why it matters:
-   The preferential equity allotment expands Superior Finlease Ltd's paid-up equity capital and liquidity reserves, providing non-debt growth capital and liquidity reserves while introducing nominal equity dilution.
-
-   Fundamental impact:
-   Positive — strengthens balance sheet equity capital through non-debt fund infusion (nominal equity dilution).
-
-   Key financial implication:
-   Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution.
-
-   Time horizon:
-   Short to Medium Term
-
-   Sources:
-   NSE Corporate Announcement | BSE Filing
+1. [GLOBAL & DOMESTIC MACRO] Global Market & Macro Context
+   Global market risk sentiment reflected overseas geopolitical developments as Brent crude traded range-bound amid evolving geopolitical headlines in the Middle East. Benchmark sovereign bond yields stabilized as institutional participants assessed upcoming central bank policy deliberations. Asian equities opened predominantly in the green following supportive overnight cues from Wall Street, while GIFT Nifty pointed toward a steady to positive opening for domestic bourses.
 
 ------------------------------------------------------------
 
-2. Primo Chemicals Limited (PRIMO) — ₹22.31 — Positive
-   Update on acquisition of Balance 51%Equity Stake in Flow Tech Chemicals Private Limited.
-
-   What happened:
-   Primo Chemicals Limited has announced: Primo Chemicals Limited has informed the Exchange regarding 'Update on acquisition of Balance 51%Equity Stake in Flow Tech Chemicals Private Limited.'.
-
-   Why it matters:
-   The strategic acquisition broadens Primo Chemicals Limited's operational portfolio and commercial capabilities, with financial accretion dependent on post-acquisition integration.
-
-   Fundamental impact:
-   Positive — expands operational footprint and commercial capabilities.
-
-   Key financial implication:
-   Financial contribution will depend on transaction valuation and subsequent operational consolidation.
-
-   Time horizon:
-   Long Term
-
-   Sources:
-   NSE Corporate Announcement
+2. [SECTOR CAUSAL CHAIN] Sector Perspective: US Interest Rates & IT Spending
+   Elevated US interest rates and persistent 'higher for longer' sovereign yield environments continue to induce caution across North American enterprise clients, leading to a curtailment of discretionary technology spend. Consequently, Indian Tier-1 IT services providers, including Wipro and Infosys, face elongated deal conversion cycles and muted near-term constant-currency revenue acceleration.
+   • Causal Transmission: Elevated US rates -> North American enterprise spend caution -> IT deal delays
+   • Note: [Requires Review: 2nd-order macro-to-sector transmission]
 
 ------------------------------------------------------------
 
-3. Manoj Ceramic Ltd (544073) — ₹82.99 — Positive
-   Manoj Ceramic Ltd - 544073 - Announcement under Regulation 30 (LODR)-Preferential Issue
-
-   What happened:
-   Manoj Ceramic Ltd has announced: Manoj Ceramic Limited has informed the exchange regarding Modification of class right of NCRPS to CCPS
-
-   Why it matters:
-   The preferential equity allotment expands Manoj Ceramic Ltd's paid-up equity capital and liquidity reserves, providing non-debt growth capital and liquidity reserves while introducing nominal equity dilution.
-
-   Fundamental impact:
-   Positive — strengthens balance sheet equity capital through non-debt fund infusion (nominal equity dilution).
-
-   Key financial implication:
-   Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution.
-
-   Time horizon:
-   Short to Medium Term
-
-   Sources:
-   NSE Corporate Announcement | BSE Filing
+3. Juniper Hotels Ltd — Positive
+   Juniper Hotels Ltd Announces Proposed Acquisition of Novotel Imagicaa for ₹248 Cr. The acquisition valued at ₹248.0 Cr broadens Juniper Hotels Ltd's geographic footprint, with transaction consolidation subject to regulatory approvals. Financial contribution will depend on transaction valuation and subsequent operational consolidation.
 
 ------------------------------------------------------------
 
-4. Juniper Hotels Ltd (JUNIPER) — ₹214.84 — Positive
-   Announces Proposed Acquisition of Novotel Imagicaa for Rs 248 Crore
-
-   What happened:
-   Juniper Hotels Ltd has announced: Juniper Hotels Limited has informed the Exchange regarding a press release dated September 16, 2026, titled "Juniper Hotels Announces Proposed Acquisition of Novotel Imagicaa for Rs 248 Crore".
-
-   Why it matters:
-   The strategic acquisition broadens Juniper Hotels Ltd's operational portfolio and commercial capabilities, with financial accretion dependent on post-acquisition integration.
-
-   Fundamental impact:
-   Positive — expands operational footprint and commercial capabilities.
-
-   Key financial implication:
-   Financial contribution will depend on transaction valuation and subsequent operational consolidation.
-
-   Time horizon:
-   Long Term
-
-   Sources:
-   NSE Corporate Announcement
+4. Primo Chemicals Limited — Positive
+   Primo Chemicals Limited has announced Update on acquisition of Balance 51%Equity Stake in Flow Tech Chemicals Private Limited. The acquisition advances Primo Chemicals Limited's inorganic expansion strategy, with target operations consolidating upon closing. Financial contribution will depend on transaction valuation and subsequent operational consolidation.
 
 ------------------------------------------------------------
 
-5. Zodiac Energy Limited (ZODIAC) — ₹220.37 — Positive
-   Acquisition of majority stake in eight LLPs
-
-   What happened:
-   Zodiac Energy Limited has announced: Zodiac Energy Limited has informed the Exchange about Acquisition of majority stake in eight LLPs
-
-   Why it matters:
-   The strategic acquisition broadens Zodiac Energy Limited's operational portfolio and commercial capabilities, with financial accretion dependent on post-acquisition integration.
-
-   Fundamental impact:
-   Positive — expands operational footprint and commercial capabilities.
-
-   Key financial implication:
-   Financial contribution will depend on transaction valuation and subsequent operational consolidation.
-
-   Time horizon:
-   Long Term
-
-   Sources:
-   NSE Corporate Announcement
+5. ACME Solar Holdings Ltd — Positive
+   Acme Solar Holdings Ltd announced that a press release dated September 16, 2026, titled Acme Solar commissions 66.68 MW Solar Capacity and 300 MWh BESS Capacity in Rajasthan". The operational expansion enhances ACME Solar Holdings Ltd's throughput capabilities and economies of scale.
 
 ------------------------------------------------------------
 
-6. Godavari Biorefineries Limited (GODAVARIB) — ₹242.83 — Positive
-   USE OF COMPOUNDS FOR TREATING VIRAL INFECTIONS
-
-   What happened:
-   Godavari Biorefineries Limited has announced: Godavari Biorefineries Limited has informed the Exchange about General Updates Chinese Patent Office has granted our patent application entitled "USE OF COMPOUNDS FOR TREATING VIRAL INFECTIONS".
-
-   Why it matters:
-   Securing regulatory clearance clarifies operational permissions for Godavari Biorefineries Limited, removing regulatory uncertainty and permitting licensed business operations.
-
-   Fundamental impact:
-   Positive — removes regulatory uncertainty and confirms operational authorizations.
-
-   Key financial implication:
-   Validates ongoing facility utilization with zero incremental regulatory compliance penalties.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   NSE Corporate Announcement
+6. Fortis Healthcare Ltd — Positive
+   Fortis Healthcare Ltd signs 29-year pact for 400+ bed super speciality hospital in Delhi. The strategic collaboration enables Fortis Healthcare Ltd to expand market access and commercial execution channels.
 
 ------------------------------------------------------------
 
-7. Praveg Ltd (531637) — ₹255.40 — Positive
-   Praveg Ltd - 531637 - Announcement under Regulation 30 (LODR)-Award_of_Order_Receipt_of_Order
-
-   What happened:
-   Praveg Ltd has announced: Pursuant to Regulation 30 of the SEBI (Listing Obligations and Disclosure Requirements) Regulations, 2015, we wish to inform you that the Company has received a Letter of Acceptance (LoA) ....
-
-   Why it matters:
-   Securing this project contract expands Praveg Ltd's ongoing execution pipeline and strengthens operational continuity over the project lifecycle.
-
-   Fundamental impact:
-   Positive — expands ongoing execution pipeline and operational continuity.
-
-   Key financial implication:
-   Project financial value was not separately disclosed; earnings impact will depend on execution margins and billing milestones.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   NSE Corporate Announcement | BSE Filing
+7. Krsnaa Diagnostics Ltd — Positive
+   Krsnaa Diagnostics Ltd signs 15-year pact for Petct facilities at 4 Punjab government hospitals. The strategic collaboration enables Krsnaa Diagnostics Ltd to expand market access and commercial execution channels.
 
 ------------------------------------------------------------
 
-8. Windsor Machines Limited (WINDMACHIN) — ₹300.70 — Positive
-   Trading approval for 17,32,405 Equity shares of face value Rs
-
-   What happened:
-   Windsor Machines Limited has announced: Windsor Machines Limited has informed the Exchange about trading approval for 17,32,405 Equity shares of face value Rs. 2/- each allotted pursuant to conversion of warrants on preferential basis, from National Stock Exchange of India Limited and BSE Limited
-
-   Why it matters:
-   The preferential equity allotment expands Windsor Machines Limited's paid-up equity capital and liquidity reserves, providing non-debt growth capital and liquidity reserves while introducing nominal equity dilution.
-
-   Fundamental impact:
-   Positive — strengthens balance sheet equity capital through non-debt fund infusion (nominal equity dilution).
-
-   Key financial implication:
-   Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution.
-
-   Time horizon:
-   Short to Medium Term
-
-   Sources:
-   NSE Corporate Announcement
+8. Mazagon Dock Shipbuilders Ltd — Positive
+   Mazagon Dock Shipbuilders Ltd announced that what is an anchor shipyard? Mazagon Dock inks MOU to lead greenfield shipbuilding cluster at Dighi. The strategic collaboration enables Mazagon Dock Shipbuilders Ltd to expand market access and commercial execution channels.
 
 ------------------------------------------------------------
 
-9. LTFOODS Limited (LTFOODS) — ₹421.05 — Positive
-   LT Foods Limited: Agreements
-
-   What happened:
-   LTFOODS Limited has announced: LT Foods Limited has informed the Exchange about Agreements
-
-   Why it matters:
-   Signing this strategic agreement establishes commercial collaboration for LTFOODS Limited, strengthening business development and partner alignment.
-
-   Fundamental impact:
-   Positive — establishes strategic commercial alignment and collaborative business development.
-
-   Key financial implication:
-   Collaborative partnerships create forward commercial pipelines, with revenue realization contingent on individual client contracts.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   NSE Corporate Announcement
-
-------------------------------------------------------------
-
-10. ACME Solar Holdings Ltd (ACMESOLAR) — ₹422.80 — Positive
-   ACME Solar commissions 66.68 MW Solar Capacity and 300 MWh BESS Capacity in Rajasthan
-
-   What happened:
-   ACME Solar Holdings Ltd has announced: Acme Solar Holdings Limited has informed the Exchange regarding a press release dated September 16, 2026, titled "ACME Solar commissions 66.68 MW Solar Capacity and 300 MWh BESS Capacity in Rajasthan".
-
-   Why it matters:
-   Bringing new production assets online broadens ACME Solar Holdings Ltd's throughput capability, allowing the business to service expanding client volumes and realize operational scale.
-
-   Fundamental impact:
-   Positive — expands production throughput capacity and operating scale for long-term revenue growth.
-
-   Key financial implication:
-   Financial magnitude cannot be reliably quantified from disclosed information.
-
-   Time horizon:
-   Long Term
-
-   Sources:
-   NSE Corporate Announcement
-
-------------------------------------------------------------
-
-11. Fortis Healthcare Ltd (FORTIS) — ₹880.10 — Positive
-   Signs 29-year pact for 400+ bed super speciality hospital in Delhi - CNBC TV18
-
-   What happened:
-   Fortis Healthcare Ltd has announced: Fortis Healthcare signs 29-year pact for 400+ bed super speciality hospital in Delhi CNBC TV18
-
-   Why it matters:
-   Signing this strategic agreement establishes commercial collaboration for Fortis Healthcare Ltd, strengthening business development and partner alignment.
-
-   Fundamental impact:
-   Positive — establishes strategic commercial alignment and collaborative business development.
-
-   Key financial implication:
-   Collaborative partnerships create forward commercial pipelines, with revenue realization contingent on individual client contracts.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   CNBC-TV18
-
-------------------------------------------------------------
-
-12. IndusInd Bank Limited (INDUSINDBK) — ₹956.50 — Positive
-   Takes HYROX India Partnership Multi-City as the Fitness Movement Gains Momentum
-
-   What happened:
-   IndusInd Bank Limited has announced: IndusInd Bank Limited has informed the Exchange regarding a press release dated September 16, 2026, titled "IndusInd Bank Takes HYROX India Partnership Multi-City as the Fitness Movement Gains Momentum".
-
-   Why it matters:
-   Signing this strategic agreement establishes commercial collaboration for IndusInd Bank Limited, strengthening business development and partner alignment.
-
-   Fundamental impact:
-   Positive — establishes strategic commercial alignment and collaborative business development.
-
-   Key financial implication:
-   Collaborative partnerships create forward commercial pipelines, with revenue realization contingent on individual client contracts.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   NSE Corporate Announcement
-
-------------------------------------------------------------
-
-13. Mazagon Dock Shipbuilders Ltd (MAZDOCK) — ₹2,236 — Positive
-   Signing of MoU with National Shipbuilding & Heavy Industries Park Maharashtra Limited (NSHIPML)
-
-   What happened:
-   Mazagon Dock Shipbuilders Ltd has announced: Mazagon Dock Shipbuilders Limited has informed the Exchange regarding 'Signing of MoU with National Shipbuilding & Heavy Industries Park Maharashtra Limited (NSHIPML) '.
-
-   Why it matters:
-   Signing this strategic agreement establishes commercial collaboration for Mazagon Dock Shipbuilders Ltd, strengthening business development and partner alignment.
-
-   Fundamental impact:
-   Positive — establishes strategic commercial alignment and collaborative business development.
-
-   Key financial implication:
-   Collaborative partnerships create forward commercial pipelines, with revenue realization contingent on individual client contracts.
-
-   Time horizon:
-   Medium Term
-
-   Sources:
-   NSE Corporate Announcement
-
-------------------------------------------------------------
-
-14. Neogen Chemicals Limited (NEOGEN) — ₹2,310.30 — Positive
-   Qualified Institutional Placement
-
-   What happened:
-   Neogen Chemicals Limited has announced: Neogen Chemicals Limited has informed the Exchange about outcome of Fund Raising Committee Meeting held on September 16, 2026.
-
-   Why it matters:
-   The preferential equity allotment expands Neogen Chemicals Limited's paid-up equity capital and liquidity reserves, providing non-debt growth capital and liquidity reserves while introducing nominal equity dilution.
-
-   Fundamental impact:
-   Positive — strengthens balance sheet equity capital through non-debt fund infusion (nominal equity dilution).
-
-   Key financial implication:
-   Directly augments net worth and cash balances with zero incremental debt-service burden, albeit with nominal equity dilution.
-
-   Time horizon:
-   Short to Medium Term
-
-   Sources:
-   NSE Corporate Announcement
-
-------------------------------------------------------------
-
-15. Prabhatam Infra Venture Ltd (531647) — Positive
-   Prabhatam Infra Venture Ltd - 531647 - Announcement under Regulation 30 (LODR)-Acquisition
-
-   What happened:
-   Prabhatam Infra Venture Ltd has announced: The Board consider & approve the admission of the company as a boady corporate partner in Swastik Agro Fresh LLP.
-
-   Why it matters:
-   The strategic acquisition broadens Prabhatam Infra Venture Ltd's operational portfolio and commercial capabilities, with financial accretion dependent on post-acquisition integration.
-
-   Fundamental impact:
-   Positive — expands operational footprint and commercial capabilities.
-
-   Key financial implication:
-   Financial contribution will depend on transaction valuation and subsequent operational consolidation.
-
-   Time horizon:
-   Long Term
-
-   Sources:
-   NSE Corporate Announcement | BSE Filing
+9. Neogen Chemicals Limited — Positive
+   Neogen Chemicals Limited announced that outcome of Fund Raising Committee Meeting held on September 16, 2026. The capital raise strengthens Neogen Chemicals Limited's balance sheet liquidity and supports forward growth initiatives.
 
 ------------------------------------------------------------
 
