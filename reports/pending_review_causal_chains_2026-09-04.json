@@ -1,0 +1,17 @@
+[
+  {
+    "candidate_type": "SECTOR_CAUSAL_COMMENTARY",
+    "company_name": "Sector Perspective: Crude Price Escalation & Downstream Margin Squeeze",
+    "headline": "Sector Perspective: Crude Price Escalation & Downstream Margin Squeeze",
+    "flowing_prose": "Elevated international crude benchmarks translate into prompt input cost inflation for domestic downstream consumers, led by aviation turbine fuel (ATF) for airlines and petrochemical monomers for paint manufacturers. Operating margins for volume leaders including InterGlobe Aviation (IndiGo) and Asian Paints encounter near-term margin friction until raw material price increases can be passed through.",
+    "affected_sector": "Aviation & Paints",
+    "causal_chain": "Crude oil rally -> ATF & monomer cost surge -> Near-term margin compression",
+    "sources": "Commodity Ripple Synthesis",
+    "event_date": "2026-09-04",
+    "source_type": "SYNTHESIZED_ANALYST_REASONING",
+    "review_status": "CANDIDATE_FOR_HUMAN_REVIEW",
+    "human_review_flag": "Requires Review: 2nd-order commodity transmission",
+    "research_importance_score": 9.0,
+    "materiality_score": 8.7
+  }
+]

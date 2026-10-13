@@ -1,0 +1,32 @@
+[
+  {
+    "candidate_type": "SECTOR_CAUSAL_COMMENTARY",
+    "company_name": "Sector Perspective: US Interest Rates & IT Spending",
+    "headline": "Sector Perspective: US Interest Rates & IT Spending",
+    "flowing_prose": "Elevated US interest rates and persistent 'higher for longer' sovereign yield environments continue to induce caution across North American enterprise clients, leading to a curtailment of discretionary technology spend. Consequently, Indian Tier-1 IT services providers, including Wipro and Infosys, face elongated deal conversion cycles and muted near-term constant-currency revenue acceleration.",
+    "affected_sector": "IT Services / Technology",
+    "causal_chain": "Elevated US rates -> North American enterprise spend caution -> IT deal delays",
+    "sources": "Macro Synthesis (Analyst Causal Model)",
+    "event_date": "2026-10-09",
+    "source_type": "SYNTHESIZED_ANALYST_REASONING",
+    "review_status": "CANDIDATE_FOR_HUMAN_REVIEW",
+    "human_review_flag": "Requires Review: 2nd-order macro-to-sector transmission",
+    "research_importance_score": 9.1,
+    "materiality_score": 8.8
+  },
+  {
+    "candidate_type": "SECTOR_CAUSAL_COMMENTARY",
+    "company_name": "Sector Perspective: Crude Price Escalation & Downstream Margin Squeeze",
+    "headline": "Sector Perspective: Crude Price Escalation & Downstream Margin Squeeze",
+    "flowing_prose": "Elevated international crude benchmarks translate into prompt input cost inflation for domestic downstream consumers, led by aviation turbine fuel (ATF) for airlines and petrochemical monomers for paint manufacturers. Operating margins for volume leaders including InterGlobe Aviation (IndiGo) and Asian Paints encounter near-term margin friction until raw material price increases can be passed through.",
+    "affected_sector": "Aviation & Paints",
+    "causal_chain": "Crude oil rally -> ATF & monomer cost surge -> Near-term margin compression",
+    "sources": "Commodity Ripple Synthesis",
+    "event_date": "2026-10-09",
+    "source_type": "SYNTHESIZED_ANALYST_REASONING",
+    "review_status": "CANDIDATE_FOR_HUMAN_REVIEW",
+    "human_review_flag": "Requires Review: 2nd-order commodity transmission",
+    "research_importance_score": 9.0,
+    "materiality_score": 8.7
+  }
+]
